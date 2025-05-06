@@ -30,3 +30,24 @@
 *.exe
 *.out
 *.app
+
+# Build output
+/build/
+*.o
+*.a
+*.so
+*.out
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
