@@ -49,6 +49,8 @@ int configure_uart(const char* device);
     - std::mutex to protect access to latest_packet
     - uart thread locks and updates latest_packet and unlocks
     - 80ms thread locks and reads latest_packet and sends it to localhost, where the python script picks it up
+
+    - ? It might not actually be the latest packet, might just be all of them? IDK.
     
     More advanced solution: std::atomic<std::shared_ptr<ImuPacket>> (if using smart pointers but not necessary probably)
 
@@ -75,7 +77,6 @@ int configure_uart(const char* device);
     This gives both threads safe and consistent access to the same data without stepping on each other I thiiiink
 
 */
-
 
 int main(int argc, char** argv) {
     const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
