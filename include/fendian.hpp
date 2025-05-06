@@ -20,7 +20,7 @@ typedef union {
 } float_union;
 
 // Function to convert a float from host byte order to big-endian (network)
-float f_htobe32(float32_t val) {
+inline float32_t f_htobe32(float32_t val) {
     float_union fu;
     memcpy(&fu.f, &val, sizeof(float32_t));
     fu.u = htobe32(fu.u); // Convert uint32_t to big-endian
@@ -28,7 +28,7 @@ float f_htobe32(float32_t val) {
 }
 
 // Function to convert a float from big-endian (network) to host byte order
-float f_be32toh(float32_t val) {
+inline float32_t f_be32toh(float32_t val) {
     float_union fu;
     memcpy(&fu.f, &val, sizeof(float32_t));
     fu.u = be32toh(fu.u); // Convert uint32_t to host byte order
