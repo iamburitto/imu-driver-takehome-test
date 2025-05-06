@@ -4,8 +4,6 @@
 #include <cstddef>
 #include <cstdio>
 #include "fendian.hpp"
-
-#pragma pack(1)
 struct ImuPacket {
     uint32_t packet_count;
     float32_t x_rate;

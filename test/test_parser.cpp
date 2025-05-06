@@ -12,7 +12,7 @@ using Catch::Approx;
     2. must covert from network byte order (big endian) to host byte order on the receiving side
 */
 
-TEST_CASE("Invalid IMU packet fails to parse")
+TEST_CASE("Invalid IMU packet fails")
 {
     uint8_t buffer[20] =
     {
@@ -39,26 +39,25 @@ TEST_CASE("Invalid IMU packet fails to parse")
     {
         SECTION("Bad sync word byte 0")
         {
-            buffer[0] == 0x00;
+            buffer[0] = 0x00;
         }
 
         SECTION("Bad sync word byte 1")
         {
-            buffer[1] == 0x00;
+            buffer[1] = 0x00;
         }
 
         SECTION("Bad sync word byte 2")
         {
-            buffer[2] == 0x00;
+            buffer[2] = 0x00;
         }
 
         SECTION("Bad sync word byte 3")
         {
-            buffer[3] == 0x00;
+            buffer[3] = 0x00;
         }
 
         REQUIRE(parse_imu_packet(&buffer[0], sizeof(buffer), pkt) == false);
-
     }
 }
 

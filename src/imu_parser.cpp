@@ -34,6 +34,12 @@ bool parse_imu_packet(const uint8_t* buffer, size_t len, ImuPacket& out)
         return false;
     }
 
+    printf("buffer[0]: %02X ", buffer[0]);
+    printf("buffer[1]: %02X ", buffer[1]);
+    printf("buffer[2]: %02X ", buffer[2]);
+    printf("buffer[3]: %02X ", buffer[3]);
+    printf("\n");
+
     // TODO: Define offsets instead of magic numbers
 
     // Copy bytes 4-7 into a uint32_t variable for packet count and use be32toh() to convert it from big-endian to host order
