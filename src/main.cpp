@@ -7,6 +7,25 @@
 
 int configure_uart(const char* device);
 
+/*
+    Pseudocode plan for the new main loop: UART + parser:
+
+    main(argc, argv):
+    - Read serial port path from command-line args (default to /dev/tty1)
+    - Call configure_uart(path) → fd
+    - Create a 1024-byte read buffer
+    - Create a small sliding window or queue for sync detection
+    - Loop:
+        - read() from fd into buffer
+        - for each byte:
+            - Push byte into temporary buffer
+            - Check if the last 4 bytes match sync pattern
+                - If yes, check if you have at least 20 bytes
+                - Call parse_imu_packet() on the 20-byte window
+                - Print out result
+*/
+
+
 int main(int argc, char** argv) {
     const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
     
@@ -15,21 +34,30 @@ int main(int argc, char** argv) {
         port = argv[1]; // override port with command line argument
     }
 
-    std::cout << "Opening serial port: " << port << "\n";
-    
+    printf("Opening serial port: %d\n", port);
     int fd = configure_uart(port);
-    if (fd < 0) return 1;
+    if (fd < 0)
+    {
+        return 1;
+    }
 
-    uint8_t buf[256];
-    while (true) {
-        ssize_t n = read(fd, buf, sizeof(buf));
-        if (n > 0) {
-            printf("Read %zd bytes: ", n);
-            for (ssize_t i = 0; i < n; ++i) {
+    uint8_t buf[1024];
+    while (true)
+    {
+        ssize_t nbytes_read = read(fd, buf, sizeof(buf));
+
+        if (nbytes_read > 0)
+        {
+            printf("Read %zd bytes: ", nbytes_read);
+
+            for (ssize_t i = 0; i < nbytes_read; ++i)
+            {
                 printf("%02X ", buf[i]);
             }
             printf("\n");
-        } else {
+        }
+        else
+        {
             usleep(1000); // Small sleep to avoid busy-looping
         }
     }
@@ -39,6 +67,7 @@ int main(int argc, char** argv) {
 }
 
 int configure_uart(const char* device) {
+
     // Open the serial port for read/write, no controlling terminal, synchronous writes
     int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
     if (fd < 0) {
