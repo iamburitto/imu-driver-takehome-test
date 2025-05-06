@@ -15,12 +15,11 @@ bool parse_imu_packet(const uint8_t* buffer, size_t len, ImuPacket& out)
         return false;
     }
 
+    // Return false if length < 20
     if (len < 20)
     {
         return false;
     }
-    
-    // Return false if length < 20
 
     // Return false if first 4 bytes are NOT the sync header 0x7F 0xF0 0x1C 0xAF
 
