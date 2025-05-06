@@ -1,7 +1,7 @@
 #include "imu_parser.hpp"
 
 /*
-    If we assume network byte order (big endian), then code has to handle endianness like this:
+    If we assume network byte order (big endian), then I think code has to handle endianness like this:
 
     1. must convert from host byte order to network byte order (big endian) on the sending side
     2. must covert from network byte order (big endian) to host byte order on the receiving side
@@ -67,11 +67,4 @@ bool parse_imu_packet(const uint8_t* buffer, size_t len, ImuPacket& out)
 
     // Return true since there's no way to calculate a checksum
     return true;
-
-    /*
-        NOTESS: 
-
-        Probs use memcpy() or a union if not doing byte-by-byte extraction
-        If I'm paranoid about alignment or strict aliasing, memcpy() is safest.
-    */
 }
