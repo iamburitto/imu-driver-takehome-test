@@ -14,8 +14,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # Tell the compiler to search for headers in include/
 include_directories(include)
 
-# 👇 Include FetchContent to allow test/CMakeLists.txt to fetch Catch2
+# 👇 Include FetchContent to allow test/CMakeLists.txt to fetch Catch2 (must be before I declare Catch2 in this file)
 include(FetchContent)
+
+# for unit testing
+add_subdirectory(test)
 
 # Collect all .cpp files in src/ so you don’t have to list them one by one
 file(GLOB SOURCES
@@ -27,4 +30,3 @@ add_executable(imu_uart_parser ${SOURCES})
 
 # 👇 Enable testing system and add test subdirectory
 enable_testing()
-add_subdirectory(test)
