@@ -42,13 +42,22 @@ environment that will execute the IMU parsing code every `80ms` and broadcast th
 `test/` → Future test scripts (e.g. Python simulator)
 `build/` → CMake build output (usually gitignored)
 
-## How to Build
+## How to build
 
 ```bash
 mkdir -p build
 cd build
 cmake ..
 make
+```
+
+## How to build and run unit tests
+
+```bash
+cd build
+cmake ..
+make unit_tests
+./bin/unit_tests
 ```
 
 ## How to Run (with virtual UART)
@@ -60,15 +69,4 @@ socat -d -d pty,raw,echo=0 pty,raw,echo=0
 ```
 
 Use one `/dev/pts/X` for the C++ parser, and the other for sending simulated data via Python or echo.
-
-## How to build tests
-
-```bash
-cd build
-cmake ..
-make unit_tests
-./bin/unit_tests
-```
-
-## How to run tests:
 
