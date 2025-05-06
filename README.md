@@ -1,5 +1,7 @@
 # IMU UART Parser - Takehome Assignment
 
+## Prompt
+
 An IMU outputs a byte stream at `921600` baud with a packet definition described below:
 
 | Byte offset 	| Size 	| Type 	| Description 	|
@@ -58,15 +60,49 @@ cd build
 cmake ..
 make unit_tests
 ./bin/unit_tests
+Randomness seeded to: 1089831589
+===============================================================================
+All tests passed (1 assertion in 1 test case)
 ```
 
-## How to Run (with virtual UART)
+## How to test `imu_uart_parser` executable with virtual UART using `socat`
 
-Use `socat` to create virtual terminals:
+`socat` establishes a relationsbip between two data sources - in this case, two files.
+
+You will need `3` different terminal windows:
+
+
+In `terminal 1`:
 
 ```bash
-socat -d -d pty,raw,echo=0 pty,raw,echo=0
+# Use `socat` to create two virtual terminals and connect them together
+$ socat -d -d pty,raw,echo=0 pty,raw,echo=0
+2025/05/05 21:51:00 socat[82065] N PTY is /dev/pts/5
+2025/05/05 21:51:00 socat[82065] N PTY is /dev/pts/7 
+2025/05/05 21:51:00 socat[82065] N starting data transfer loop with FDs [5,5] and [7,7]
 ```
 
-Use one `/dev/pts/X` for the C++ parser, and the other for sending simulated data via Python or echo.
+In `terminal 2`: 
+
+```bash
+# run the imu_uart_parser program with the first PTY
+./build/bin/imu_uart_parser /dev/pts/5
+Opening serial port: /dev/pts/5
+```
+
+In `terminal 3`:  
+
+```bash
+# write simulated data bytes to the first PTY by echoing them to the second PTY:
+echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x20\x00\x00' > /dev/pts/7
+```
+
+In `terminal 1`, you should see this output from `imu_uart_parser`:
+
+```bash
+$ ./build/bin/imu_uart_parser /dev/pts/5
+Read 20 bytes: 7F F0 1C AF 00 00 00 01 41 20 00 00 41 A0 00 00 42 20 00 00
+```
+
+
 
