@@ -5,6 +5,31 @@
 
 using Catch::Approx;
 
+TEST_CASE("Invalid IMU packet fails to parse")
+{
+    uint8_t buffer[20] =
+    {
+        0x7F, 0xF0, 0x1C, 0xAF, // Sync
+        0x00, 0x00, 0x00, 0x02, // Packet count = 2
+        0x41, 0x20, 0x00, 0x00, // X = 10.0f
+        0x41, 0xA0, 0x00, 0x00, // Y = 20.0f
+        0x42, 0x20, 0x00, 0x00  // Z = 40.0f
+    };
+
+    ImuPacket pkt;
+
+    SECTION("NULL buffer")
+    {
+        REQUIRE(parse_imu_packet(NULL, sizeof(buffer), pkt) == false);
+    }
+
+    SECTION("Invalid length (not enough bytes)")
+    {
+        REQUIRE(parse_imu_packet(&buffer[0], 19, pkt) == false);
+    }    
+
+}
+
 TEST_CASE("Valid IMU packet parses correctly")
 {
     #pragma message("CATCH_VERSION: " CATCH_VERSION_STRING)
@@ -19,6 +44,7 @@ TEST_CASE("Valid IMU packet parses correctly")
     };
 
     ImuPacket pkt;
+
     REQUIRE(parse_imu_packet(&buffer[0], sizeof(buffer), pkt));
     REQUIRE(pkt.packet_count == 2);
     REQUIRE(pkt.x_rate == Approx(10.0f));
