@@ -7,7 +7,7 @@
 
 int configure_uart(const char* device);
 
-int main() {
+int main(int argc, char** argv) {
     const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
     
     if (argc > 1)
