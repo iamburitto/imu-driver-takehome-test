@@ -67,7 +67,7 @@ All tests passed (1 assertion in 1 test case)
 
 ## How to test `imu_uart_parser` executable by using `socat` to create two linked virtual serial ports
 
-A `pty` is a `pseudoterminal` when we don't have access to an actual hardware terminal (`tty`).
+A `pty` is a `pseudoterminal` (fake serial port) when we don't have access to an actual hardware terminal serial port (`tty`).
 
 We are creating two linked virtual serial ports like this:
 
@@ -76,9 +76,26 @@ We are creating two linked virtual serial ports like this:
 [imu_uart_parser]      [python or echo]
 ```
 
-To do this, we need `3` separate terminal windows.
+Anything you write to one will show up on the other!
 
-### In `terminal 1`: create two linked virtual serial ports
+
+In a nutshell:
+
+```bash
+# Terminal 1
+socat -d -d pty,raw,echo=0 pty,raw,echo=0
+# → Note the two PTY paths it prints (say /dev/pts/5 and /dev/pts/7)
+
+# Terminal 2
+./bin/imu_uart_parser /dev/pts/5
+
+# Terminal 3
+echo -ne '\x7f\xf0\x1c\xaf...' > /dev/pts/7
+```
+
+In more detail:
+
+In `terminal 1`: create two linked virtual serial ports:
 
 ```bash
 # Use `socat` to create two virtual terminals and connect them together.
@@ -95,25 +112,24 @@ $ socat -d -d pty,raw,echo=0 pty,raw,echo=0
 - `raw` means no line buffering or special character handling, just raw bytes
 - `echo=0` means don't echo back what you send (avoids byte duplication)
 
-### In `terminal 2`: connect imu_uart_parser to one side (sending)
+In `terminal 2`: connect `imu_uart_parser` to one side:
 
 ```bash
 # run the imu_uart_parser program with the first PTY
-./build/bin/imu_uart_parser /dev/pts/5
+$ ./build/bin/imu_uart_parser /dev/pts/5
 Opening serial port: /dev/pts/5
 ```
 
-### In `terminal 3`: write simulated IMU data bytes to the other side (receiving)
+In `terminal 3`: write simulated IMU data bytes to the other side:
 
 ```bash
 # write simulated data bytes to the first PTY by echoing them to the second PTY:
-echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x20\x00\x00' > /dev/pts/7
+$ echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x20\x00\x00' > /dev/pts/7
 ```
 
-In `terminal 1` will print the bytes we wrote to `terminal 2`:
+The simulated IMU data bytes will show up in `terminal 1`:
 
 ```bash
-$ ./build/bin/imu_uart_parser /dev/pts/5
 Read 20 bytes: 7F F0 1C AF 00 00 00 01 41 20 00 00 41 A0 00 00 42 20 00 00
 ```
 
