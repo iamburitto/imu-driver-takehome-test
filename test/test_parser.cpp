@@ -1,8 +1,14 @@
-#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_test_macros.hpp> // REQUIRE, CHECK
+#include <catch2/catch_approx.hpp>  // ✅ This is where Approx actually lives
+
 #include "imu_parser.hpp"
+
+using Catch::Approx;
 
 TEST_CASE("Valid IMU packet parses correctly")
 {
+    #pragma message("CATCH_VERSION: " CATCH_VERSION_STRING)
+
     uint8_t buffer[20] =
     {
         0x7F, 0xF0, 0x1C, 0xAF, // Sync
