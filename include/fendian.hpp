@@ -3,6 +3,7 @@
 
 #include <cstdint> // defines standard integer types like uint32_t
 #include <endian.h> // defines htobe32() and be32toh()
+#include <string.h>
 
 /*
     stdint.h is included for standard integer types like uint32_t.
@@ -21,7 +22,7 @@ typedef union {
 // Function to convert a float from host byte order to big-endian (network)
 float f_htobe32(float32_t val) {
     float_union fu;
-    fu.f = val;
+    memcpy(&fu.f, &val, sizeof(float32_t));
     fu.u = htobe32(fu.u); // Convert uint32_t to big-endian
     return fu.f;
 }
@@ -29,7 +30,7 @@ float f_htobe32(float32_t val) {
 // Function to convert a float from big-endian (network) to host byte order
 float f_be32toh(float32_t val) {
     float_union fu;
-    fu.f = val;
+    memcpy(&fu.f, &val, sizeof(float32_t));
     fu.u = be32toh(fu.u); // Convert uint32_t to host byte order
     return fu.f;
 }
