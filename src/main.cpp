@@ -3,11 +3,20 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <cstring>
+#include <cstdint> // for fixed-width integer types
 
 int configure_uart(const char* device);
 
 int main() {
-    const char* port = "/dev/tty1";  // Replace with /dev/pts/X for testing
+    const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
+    
+    if (argc > 1)
+    {
+        port = argv[1]; // override port with command line argument
+    }
+
+    std::cout << "Opening serial port: " << port << "\n";
+    
     int fd = configure_uart(port);
     if (fd < 0) return 1;
 
@@ -15,11 +24,11 @@ int main() {
     while (true) {
         ssize_t n = read(fd, buf, sizeof(buf));
         if (n > 0) {
-            std::cout << "Read " << n << " bytes: ";
+            printf("Read %zd bytes: ", n);
             for (ssize_t i = 0; i < n; ++i) {
                 printf("%02X ", buf[i]);
             }
-            std::cout << std::endl;
+            printf("\n");
         } else {
             usleep(1000); // Small sleep to avoid busy-looping
         }
