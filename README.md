@@ -26,7 +26,7 @@ An IMU outputs a byte stream at `921600` baud with a packet definition described
 - Y_Rate_rdps 
 - Z_Rate_rdps
 
-2. What modifications, if any, would you need to make to the code from 1. if the Linux host was a little endian processor? Describe those modifications.
+2. What modifications, if any, would you need to make to the code from 1) if the Linux host was a little endian processor? Describe those modifications.
 
 3. Write a C++ Linux program designed to execute in a resource constrained, multi-threaded 
 environment that will execute the IMU parsing code every `80ms` and broadcast the parsed results on the localhost network.
@@ -35,16 +35,16 @@ environment that will execute the IMU parsing code every `80ms` and broadcast th
 
 - The simulator should send a string of bytes in the proper format over the UART for your parser to accept
 -  The data contained in the byte string can be generated in any way of your choosing to best test the parser.
-- Subsequently, it should then read the broadcasted results from `3` on the localhost network to validate the output.
+- Subsequently, it should then read the broadcasted results from 3) on the localhost network to validate the output.
 
-## Project Structure
+### Project Structure
 
-`src/` → C++ source code
-`include/` → C++ headers
-`test/` → Future test scripts (e.g. Python simulator)
-`build/` → CMake build output (usually gitignored)
+- `src/` → C++ source code
+- `include/` → C++ headers
+- `test/` → Future test scripts (e.g. Python simulator)
+- `build/` → CMake build output (gitignored)
 
-## How to build
+### How to build
 
 ```bash
 mkdir -p build
@@ -53,7 +53,7 @@ cmake ..
 make
 ```
 
-## How to build and run unit tests
+### How to build and run just unit tests
 
 ```bash
 cd build
@@ -65,7 +65,7 @@ Randomness seeded to: 1089831589
 All tests passed (1 assertion in 1 test case)
 ```
 
-## How to test `imu_uart_parser` executable by using `socat` to create two linked virtual serial ports
+### How to test `imu_uart_parser` using `socat` to create two linked virtual serial ports
 
 A `pty` is a `pseudoterminal` (fake serial port) when we don't have access to an actual hardware terminal serial port (`tty`).
 
@@ -76,8 +76,9 @@ We are creating two linked virtual serial ports like this:
 [imu_uart_parser]      [python or echo]
 ```
 
-Anything you write to one will show up on the other!
+Anything written to one side will show up on the other side.
 
+To test this we need 3 terminal windows.
 
 In a nutshell:
 
