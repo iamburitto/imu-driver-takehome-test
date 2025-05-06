@@ -27,5 +27,13 @@ bool parse_imu_packet(const uint8_t* buffer, size_t len, ImuPacket& out)
 
     // Return true
 
+    /*
+        NOTESS: 
+        
+        Probs use memcpy() or a union if not doing byte-by-byte extraction
+        If I'm paranoid about alignment or strict aliasing, memcpy() is safest.
+        Plug in my endian float helper since I wrote it already
+    */
+
     return false;
 }
