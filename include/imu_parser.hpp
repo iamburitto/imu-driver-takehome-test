@@ -5,13 +5,7 @@
 #include <cstdio>
 #include "fendian.hpp"
 
-/*
-    If we assume network byte order (big endian), then code has to handle endianness like this:
-
-    1. must convert from host byte order to network byte order (big endian) on the sending side
-    2. must covert from network byte order (big endian) to host byte order on the receiving side
-*/
-
+#pragma pack(1)
 struct ImuPacket {
     uint32_t packet_count;
     float32_t x_rate;
