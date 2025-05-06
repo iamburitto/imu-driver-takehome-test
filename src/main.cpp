@@ -23,6 +23,57 @@ int configure_uart(const char* device);
                 - If yes, check if you have at least 20 bytes
                 - Call parse_imu_packet() on the 20-byte window
                 - Print out result
+
+        - This loop should only run until it finds valid packets.
+        - Later I will plug the parsed result into a thread-safe shared struct.
+
+*/
+
+/*
+    Pseudocode plan for once the above is working ok: Thread-safe communication between UART and 80ms thread
+    
+    How it should work:
+
+    - I need one thread reading from the UART and parsing packets
+    - I need a second thread to wake up every 80ms and broadcast the most recent valid packet on localhost (double check that was the instructions)
+    - The two threads have to share a single ImuPacket struct instance (latest_packet)
+
+    Problems/race conditions maybe:
+
+    - UART thread: might be writing to latest_packet
+    - 80ms thread: might be reading from latest_packet at the same time
+    - If this happens without synchronization the data could get corrupted
+
+    Solution probably:
+
+    - std::mutex to protect access to latest_packet
+    - uart thread locks and updates latest_packet and unlocks
+    - 80ms thread locks and reads latest_packet and sends it to localhost, where the python script picks it up
+    
+    More advanced solution: std::atomic<std::shared_ptr<ImuPacket>> (if using smart pointers but not necessary probably)
+
+    Another solution: double buffering (but probably not needed here yet)
+
+    Pseudocode for thread safety:
+
+    global mutex latest_mutex
+    global ImuPacket latest_packet
+
+    UART thread:
+        - When new packet is parsed:
+            lock(latest_mutex)
+            latest_packet = parsed_result
+            unlock(latest_mutex)
+
+    80ms thread:
+        loop every 80ms:
+            lock(latest_mutex)
+            copy = latest_packet
+            unlock(latest_mutex)
+            send copy over UDP
+
+    This gives both threads safe and consistent access to the same data without stepping on each other I thiiiink
+
 */
 
 
