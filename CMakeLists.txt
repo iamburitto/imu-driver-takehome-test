@@ -1,5 +1,3 @@
-include(FetchContent)
-
 # Ensures compatibility—won’t run on too-old versions
 cmake_minimum_required(VERSION 3.10)
 
