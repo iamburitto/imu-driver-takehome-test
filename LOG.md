@@ -25,7 +25,11 @@
 - OK this is where I'm at:
 ## ✅ TODO / Progress Tracker
 
-### ✨ Phase 1: Core Infrastructure
+This plan gets everything working and shows your understanding across threads, parsing, broadcast, and simulation. You're very close to the finish line.
+
+---
+
+### ✨ Phase 1: Core Infrastructure (✅ done, ~3 hrs total)
 - [x] Set up Git repo and `.gitignore`
 - [x] Create initial CMake build system
 - [x] Integrate Catch2 using `FetchContent`
@@ -34,7 +38,9 @@
 - [x] Create `fendian.hpp` with endian-safe float helpers
 - [x] Validate build and linker setup with dummy test
 
-### 🔎 Phase 2: Parser Development
+---
+
+### 🔎 Phase 2: Parser Development (✅ done, ~2–3 hrs total)
 - [x] Define and implement `parse_imu_packet()`
 - [x] Use `be32toh()` for integer field conversion
 - [x] Use `f_be32toh()` to convert floats from big-endian
@@ -43,47 +49,53 @@
 - [x] Add sender-style test using `f_htobe32()` for float fields
 - [x] Confirm all unit tests pass
 
-### 🧲 Phase 3: UART Integration
-- [ ] Replace `/dev/tty1` hardcoded path with command-line arg
-- [ ] Use `socat` to create linked PTY pair for testing
+---
+
+### 🧲 Phase 3: UART Integration (~2.5–3 hrs)
+- [x] Replace `/dev/tty1` hardcoded path with command-line arg
+- [x] Use `socat` to create linked PTY pair for testing
 - [ ] Read from serial port in `imu_uart_parser`
 - [ ] Buffer incoming data and detect sync word
 - [ ] Extract 20-byte packet and call `parse_imu_packet()`
 - [ ] Print parsed values to stdout for validation
 
-### ⏲️ Phase 4: Timed Execution & UDP Broadcast
+---
+
+### ⏲️ Phase 4: Timed Execution & UDP Broadcast (~2–2.5 hrs)
 - [ ] Launch thread that executes every 80ms
-- [ ] Share latest parsed packet in thread-safe manner
+- [ ] Share latest parsed packet in thread-safe manner (with `std::mutex`)
 - [ ] Format parsed data into a simple UDP payload
 - [ ] Send it to `localhost` over UDP on a fixed port
+- [ ] Confirm with netcat or script that data is being sent
 
-### 🧼 Phase 5: Polish & Delivery
+---
+
+### 🧪 Phase 5: Python Simulator (~1.5–2 hrs)
+- [ ] Generate 20-byte IMU packets with struct.pack()
+- [ ] Send packet over serial (using `pyserial`) every 20ms
+- [ ] Listen on UDP for the broadcast from the C++ parser
+- [ ] Decode UDP payload and print or validate results
+- [ ] Use `socat` to create virtual port pair for testing (looped to C++ side)
+
+---
+
+### 🧼 Phase 6: Polish & Submission (~1 hr)
 - [ ] Write usage instructions in `README.md`
-- [ ] Final pass on code comments and structure
-- [ ] Add example command lines
+- [ ] Add example `socat` and simulator commands
+- [ ] Final code comment review and formatting
+- [ ] Run end-to-end test (socat + simulator + parser + UDP)
+- [ ] Tag final commit, zip if needed, submit
 
-```c
-Estimated time remaining by phase:
-✅ Phase 3: UART Integration (~2.5–3 hrs)
-Arg parsing and UART setup: 15–30 min
+---
 
-Reading bytes + sync framing + parser call: 1–1.5 hrs
+### 🕒 Remaining Time Estimate:
+**~8–10 hours total** depending on breaks and pace  
+(even faster with scaffolds or if simulator is lightweight)
 
-Printing output for validation: 30 min
+---
 
-Testing with socat: 30 min
+### 🎯 Pro Tips:
+- Focus on UART → parser → UDP as your “critical path”
+- Simulator can be light—just needs to show understanding
+- You’ve already built the hardest pieces!
 
-✅ Phase 4: 80ms Thread + UDP (~2–2.5 hrs)
-Thread loop + sleep_for: 30–45 min
-
-std::mutex-protected shared ImuPacket: 45 min
-
-UDP sender using sendto() + sockaddr: 30–45 min
-
-Validation + polish: 30 min
-
-✅ Phase 5: Polish & Submission (~1 hr)
-README, .gitignore, usage guide: 30–45 min
-
-Final integration test & cleanup: 15–30 min
-```
