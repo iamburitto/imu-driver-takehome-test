@@ -18,4 +18,5 @@
   - Set up a placeholder std::thread that wakes every 80ms
   - Later it will broadcast the latest parsed result over UDP or whatever (localhost like the prompt says)
 - Let's go for the framing and parsing function first
+- This looks interesting, but I'm getting ahead of myself: https://www.yolinux.com/TUTORIALS/Endian-Byte-Order.html
 - 
