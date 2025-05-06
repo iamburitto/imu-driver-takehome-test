@@ -9,30 +9,23 @@
  */
 bool parse_imu_packet(const uint8_t* buffer, size_t len, ImuPacket& out)
 {
-    /*
-        1. Check if buffer is NULL or length < 20
-        - If so, return false
+    // Return false if buffer is NULL
+    
+    // Return false if length < 20
 
-        2. Check if first 4 bytes are the sync header:
-        - 0x7F, 0xF0, 0x1C, 0xAF
-        - If not, return false
+    // Return false if first 4 bytes are NOT the sync header 0x7F 0xF0 0x1C 0xAF
 
-        3. Copy bytes 4–7 into a uint32_t variable for packet_count
-        - Use be32toh() to convert it from big-endian to host order
+    // Copy bytes 4-7 into a uint32_t variable for packet count and use be32toh() to convert it from big-endian to host order
 
-        4. Copy bytes 8–11 into a float (x_rate)
-        - Use f_be32toh() to convert
+    // Copy bytes 8-11 into a float (x_rate) and use f_be32toh() to convert
 
-        5. Copy bytes 12–15 into y_rate
-        - Also with f_be32toh()
+    // Copy bytes 12-15 into y_rate and use f_be32toh() to convert
 
-        6. Copy bytes 16–19 into z_rate
-        - Same thing
+    // Copy bytes 16-19 into z_rate and use f_be32toh() to convert
 
-        7. Populate the `out` struct with those values
+    // Populate the `out` struct with those values
 
-        8. Return true
-    */
+    // Return true
 
     return false;
 }
