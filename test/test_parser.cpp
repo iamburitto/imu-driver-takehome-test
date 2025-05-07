@@ -98,7 +98,7 @@ TEST_CASE("Valid IMU packet parses correctly")
 
     REQUIRE(parse_imu_packet(buffer, sizeof(buffer), pkt));
     REQUIRE(pkt.packet_count == packet_count);
-    REQUIRE(pkt.x_rate == Approx(x));
-    REQUIRE(pkt.y_rate == Approx(y));
-    REQUIRE(pkt.z_rate == Approx(z));
+    REQUIRE(pkt.x_rate_rdps == Approx(x));
+    REQUIRE(pkt.y_rate_rdps == Approx(y));
+    REQUIRE(pkt.z_rate_rdps == Approx(z));
 }

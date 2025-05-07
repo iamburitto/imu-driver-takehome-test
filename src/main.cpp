@@ -118,7 +118,8 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-int configure_uart(const char* device) {
+int configure_uart(const char* device)
+{
 
     // Open the serial port for read/write, no controlling terminal, synchronous writes
     int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);

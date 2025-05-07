@@ -53,17 +53,17 @@ bool parse_imu_packet(const uint8_t* buffer, size_t len, ImuPacket& out)
     // Copy bytes 8-11 into a float (x_rate) and use f_be32toh() to convert
     float32_t x_rate_be;
     memcpy(&x_rate_be, &buffer[8], sizeof(float32_t));
-    out.x_rate = f_be32toh(x_rate_be);
+    out.x_rate_rdps = f_be32toh(x_rate_be);
 
     // Copy bytes 12-15 into y_rate and use f_be32toh() to convert
     float32_t y_rate_be;
     memcpy(&y_rate_be, &buffer[12], sizeof(float32_t));
-    out.y_rate = f_be32toh(y_rate_be);
+    out.y_rate_rdps = f_be32toh(y_rate_be);
 
     // Copy bytes 16-19 into z_rate and use f_be32toh() to convert
     float32_t z_rate_be;
     memcpy(&z_rate_be, &buffer[16], sizeof(float32_t));
-    out.z_rate = f_be32toh(z_rate_be);
+    out.z_rate_rdps = f_be32toh(z_rate_be);
 
     // Return true since there's no way to calculate a checksum
     return true;
