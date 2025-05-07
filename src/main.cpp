@@ -5,6 +5,8 @@
 #include <termios.h>
 #include <cstring>
 #include <cstdint> // for fixed-width integer types
+#include <cstdlib> // for size_t
+#include "imu_parser.hpp"
 
 int configure_uart(const char* device);
 
@@ -31,13 +33,13 @@ int configure_uart(const char* device);
 */
 
 // TODO: put these somewhere better later
-constexpr size_t UART_BUFFER_SIZE = 1024; // TODO: calculate how big it actually needs to be at this baud rate for 20 byte packets and running every 80ms
+constexpr size_t UART_BUFFER_CAPACITY = 1024; // TODO: calculate how big it actually needs to be at this baud rate for 20 byte packets and running every 80ms
 constexpr size_t PACKET_SIZE  = 20;
-constexpr uint8_t SYNC_BYTES[4]   = {0x7F, 0xF0, 0x1C, 0xAF};
+constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
 
 int main(int argc, char** argv)
 {
-    // read serial port path from command-line args (default to /dev/tty1)
+    // read serial port path from command-line args (default to /dev/tty1, replace with /dev/pts/X for testing)
     const char* port = (argc > 1) ? argv[1] : "/dev/tty1";
     
     // call configure_uart(port) -> fd
@@ -49,20 +51,85 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    /*
+        Goal for tonight: Implement a simple single-threaded loop that:
+
+        1. Reads raw bytes from the UART port
+        2. Buffers them
+        3. Scans for the 0x7F F0 1C AF sync header
+        4. Extracts a full 20-byte packet
+        5. Passes it to parse_imu_packet()
+        6. Prints the result to stdout
+
+        Example output: 
+
+        [UART] Found sync header at offset 12
+        [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
+        
+        Future goal:
+
+        1. Make loop run every 80ms to get raw data sent by python program
+        2. Broadcast the data to localhost read by python program to verify data matches
+        3. Probably needs to read chunks of data, not just 1 byte at a time
+    
+    */
+
     // Create a read buffer
-    std::array<uint8_t, UART_BUFFER_SIZE> buffer{}; // std::array doesn't use the heap - same footprint as uint8_t buffer[UART_BUFFER_SIZE];
+    uint8_t buffer[UART_BUFFER_CAPACITY];
 
     // create a small sliding window for sync detection
+    size_t buffer_size = 0; // buffer size is the current number of bytes in the buffer
 
-     
+    while (true)
+    {
+        // get a byte (can optimize by reading multiple bytes later)
+        uint8_t byte;
+        if (read(fd, &byte, 1) != 1) continue;
 
+        // if the buffer is full
+        if(buffer_size >= UART_BUFFER_CAPACITY)
+        {
+            // shift all the data left by 1 to make space
+            memmove(&buffer[0], &buffer[1], UART_BUFFER_CAPACITY - 1);
+
+            // update buffer size
+            buffer_size = UART_BUFFER_CAPACITY - 1;
+        }
+
+        // append new byte to end of buffer
+        buffer[buffer_size] = byte;
     
+        // increment buffer_size
+        buffer_size++;
 
+        /* Scan for sync header until there's not enough bytes for a full packet */
+        for (size_t i = 0; i + PACKET_SIZE <= buffer_size; ++i)
+        {
+            // Check if 4 bytes starting at that position match the sync header (0x7F F0 1C AF)
+            if( memcmp(&buffer[i], SYNC_BYTES, 4) == 0)
+            {
+                // Call parse_imu_packet() on 20-byte window starting there
+                ImuPacket pkt;
+                if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
+                {
+                    // print parsed result (later on it'll be sending over localhost probably)
+                    printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
+                        pkt.packet_count, pkt., pkt.y_rate, pkt.z_rate);
 
-    
+                    // Remove all bytes up through the end of that packet
+                    size_t remaining = buffer_size - (i + PACKET_SIZE);
 
-    
+                    // shift buffer left
+                    memmove(&buffer[0], &buffer[i + PACKET_SIZE], remaining);
 
+                    // update buffer length
+                    buffer_size = remaining;
+
+                    break;
+                }
+            }
+        }
+    } 
 }
 
 int main_initial_working_version(int argc, char** argv) {
@@ -112,8 +179,7 @@ int configure_uart(const char* device)
     int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
     if (fd < 0)
     {
-        std::cerr << "Failed to open UART: " << strerror(errno) << "\n";
-        perror("Failed to open UART: %s");
+        perror("Failed to open UART");
         return -1;
     }
 
@@ -121,7 +187,7 @@ int configure_uart(const char* device)
     memset(&tty, 0, sizeof tty);
 
     if (tcgetattr(fd, &tty) != 0) {
-        std::cerr << "Failed to get current UART config\n";
+        perror("Failed to get current UART config");
         return -1;
     }
 
@@ -145,13 +211,13 @@ int configure_uart(const char* device)
     // Enable receiver, ignore modem control lines
     tty.c_cflag |= (CLOCAL | CREAD);
 
-    // Set VMIN and VTIME so read() returns after 1 byte or timeout (100ms)
+    // Set VMIN and VTIME so read() returns after 1 byte or timeout (100ms? might cause problem later with 80ms loop)
     tty.c_cc[VMIN]  = 1;
     tty.c_cc[VTIME] = 1;
 
     // Apply the settings
     if (tcsetattr(fd, TCSANOW, &tty) != 0) {
-        std::cerr << "Failed to set UART config\n";
+        perror("Failed to set UART config");
         return -1;
     }
 
