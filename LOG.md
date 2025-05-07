@@ -133,5 +133,14 @@ Assumptions:
 
 - It might be simpler than that. Maybe they just want one thread to be triggered every 80ms and parse as much data as it can?
 - The only other IMU I ever worked with produced like literally 1000 samples a second, and we had to average them on the FPGA to get it to make sense at all even after setting the thing up to do its own internal averaging, and simulating the noise was a huge pain in the ass
-- Maybe I should ask a GNC person, idk  
+- Maybe I should ask a GNC person, idk
+- This whole packet parser would be so much sexier in a state machine. If I had time to redo it I'd do that again.
+- Too bad I don't have the code I wrote last time.
 
+## 5/7/2025
+
+- Another late start!
+- Plan for today is to add the two threads.
+- Its still possible that's not what they intended, but gonna go for it anyway cause I'm rusty with threading and it'll be fun
+- Thread A (UART parser running in background thread): runs as fast as bytes arrive, updates the latest good packet
+- Thread B (triggered every 80ms by scheduler): wakes up, grabs the latest parsed packet (shared memory with thread A and protected with mutexes), and broadcasts that to localhost
