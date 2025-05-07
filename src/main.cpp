@@ -30,20 +30,34 @@ int configure_uart(const char* device);
 
 */
 
+// TODO: put these somewhere better later
+constexpr size_t UART_BUFFER_SIZE = 1024; // TODO: calculate how big it actually needs to be at this baud rate for 20 byte packets and running every 80ms
+constexpr size_t PACKET_SIZE  = 20;
+constexpr uint8_t SYNC_BYTES[4]   = {0x7F, 0xF0, 0x1C, 0xAF};
+
 int main(int argc, char** argv)
 {
     // read serial port path from command-line args (default to /dev/tty1)
-    const char* dev_path = (argc > 1) ? argv[1] : "/dev/tty1";
+    const char* port = (argc > 1) ? argv[1] : "/dev/tty1";
     
-    // call configure_uart(path) -> fd
-    int fd = configure_uart(dev_path);
+    // call configure_uart(port) -> fd
+    printf("Opening serial port: %d\n", port);
+    int fd = configure_uart(port);
     if (fd < 0)
     {
         perror("UART open failed");
         return 1;
     }
 
+    // Create a read buffer
+    std::array<uint8_t, UART_BUFFER_SIZE> buffer{}; // std::array doesn't use the heap - same footprint as uint8_t buffer[UART_BUFFER_SIZE];
+
+    // create a small sliding window for sync detection
+
+     
+
     
+
 
     
 

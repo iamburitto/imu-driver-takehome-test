@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdio>
 #include "fendian.hpp"
+
 struct ImuPacket {
     uint32_t packet_count;
     float32_t x_rate_rdps;
