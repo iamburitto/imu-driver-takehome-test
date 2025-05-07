@@ -28,6 +28,8 @@ An IMU outputs a byte stream at `921600` baud with a packet definition described
 
 2. What modifications, if any, would you need to make to the code from 1) if the Linux host was a little endian processor? Describe those modifications.
 
+NONE - my trusty `fendian.hpp`  should take care of that whether or not the host is big endian or little endian ... I think. I mean, I thiiiiink. Yes. Because `htobe32()` and `be32toh()` validate that the host is not already big endian before doing any byte swapping. I'm like 90% sure of that. TODO: double check
+
 3. Write a C++ Linux program designed to execute in a resource constrained, multi-threaded 
 environment that will execute the IMU parsing code every `80ms` and broadcast the parsed results on the localhost network.
 

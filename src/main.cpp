@@ -43,11 +43,11 @@ int main(int argc, char** argv)
     const char* port = (argc > 1) ? argv[1] : "/dev/tty1";
     
     // call configure_uart(port) -> fd
-    printf("Opening serial port: %d\n", port);
+    printf("Opening serial port: %s\n", port);
     int fd = configure_uart(port);
     if (fd < 0)
     {
-        perror("UART open failed");
+        perror("UART serial port open failed");
         return 1;
     }
 
@@ -70,8 +70,7 @@ int main(int argc, char** argv)
 
         1. Make loop run every 80ms to get raw data sent by python program
         2. Broadcast the data to localhost read by python program to verify data matches
-        3. Probably needs to read chunks of data, not just 1 byte at a time
-    
+        3. Probably needs to read chunks of data later, not just 1 byte at a time
     */
 
     // Create a read buffer
@@ -156,7 +155,7 @@ int main_initial_test_version(int argc, char** argv) {
         port = argv[1]; // override port with command line argument
     }
 
-    printf("Opening serial port: %d\n", port);
+    printf("Opening serial port: %s\n", port);
     int fd = configure_uart(port);
     if (fd < 0)
     {
@@ -191,7 +190,7 @@ int main_initial_test_version(int argc, char** argv) {
 int configure_uart(const char* device)
 {
     // Open the serial port for read/write, no controlling terminal, synchronous writes
-    // TODO: read man termios to actually understand these options that you got from stackoverflow
+    // TODO: read man termios to actually understand these options that I got from stackoverflow
     int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
     if (fd < 0)
     {
@@ -227,7 +226,7 @@ int configure_uart(const char* device)
     // Enable receiver, ignore modem control lines
     tty.c_cflag |= (CLOCAL | CREAD);
 
-    // Set VMIN and VTIME so read() returns after 1 byte or timeout (100ms? might cause problem later with 80ms loop)
+    // Set VMIN and VTIME so read() returns after 1 byte or timeout (100ms timeout default I Think? might cause problem later with 80ms loop)
     tty.c_cc[VMIN]  = 1;
     tty.c_cc[VTIME] = 1;
 
