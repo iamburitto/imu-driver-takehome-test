@@ -112,6 +112,26 @@
   // Use printf + strerror for custom formatting or delayed reporting
   fprintf(stderr, "Failed to open file: %s\n", strerror(errno));
 ```
-- 
 
+- Ugh now its 11:54pm
+- But it actually works now - its parsing through the stream and finding packets (at least the first packet), though it needs test coverage.
+- The next step is to figure out what the prompt is asking me for.
+- Like does it want me to make one task that the scheduler triggers every 80ms to broadcast the latest packet to localhost, while a second thread runs in the background processing as fast as possible? OR does it want me to broadcast the entire queue of packets every 80ms?
+- “execute the IMU parsing code every 80ms and broadcast the parsed results on the localhost network.”
+- Does that mean a single task with multiple threads (1 background thread and 1 80ms thread that broadcasts the latest?)
+- Like the scheduler runs every 80ms, not the UART parser, and it broadcasts whatever was parsed most recently?
+- Or does it mean “store and broadcast everything” not "just broadcast the most up-to-date result?"?
+- idk I'm making no sense, time to sleep.
+
+Assumptions:
+
+- Thread A (UART parser running in background thread): runs as fast as bytes arrive, updates the latest good packet
+- Thread B (triggered every 80ms by scheduler): wakes up, grabs the latest parsed packet (shared memory with thread A and protected with mutexes), and broadcasts that to localhost
+- This aligns with:
+  - "resource-constrained" → no growing queues
+  - Realistic embedded stuff (e.g., updating a housekeeping packet on a schedule)
+
+- It might be simpler than that. Maybe they just want one thread to be triggered every 80ms and parse as much data as it can?
+- The only other IMU I ever worked with produced like literally 1000 samples a second, and we had to average them on the FPGA to get it to make sense at all even after setting the thing up to do its own internal averaging, and simulating the noise was a huge pain in the ass
+- Maybe I should ask a GNC person, idk  
 
