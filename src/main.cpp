@@ -29,7 +29,6 @@ int configure_uart(const char* device);
 
         - This loop should only run until it finds valid packets.
         - Later I will plug the parsed result into a thread-safe shared struct.
-
 */
 
 // TODO: put these somewhere better later
@@ -79,6 +78,7 @@ int main(int argc, char** argv)
     // create a small sliding window for sync detection
     size_t buffer_size_nbytes = 0; // buffer size is the current number of bytes in the buffer
 
+    // honestly if I'm going to do this weird single byte shifting I might as well be using a circular buffer, the logic would be easier
     while (true)
     {
         // get a byte (can optimize by reading multiple bytes later)
@@ -111,8 +111,8 @@ int main(int argc, char** argv)
             Right now, I  scan from the left for a 4-byte sync window.
             When we parse a packet, we cut it out, and slide the remaining tape left.
 
-            If we don't wanna make an actual circular buffer implementation, we can
-            just skip the cut and paste until we get close to the end.
+            If we don't wanna scoot the data that much we can
+            just skip the cut and paste until we get close to the end. That's an optimization.
         
         */
 
