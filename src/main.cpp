@@ -116,6 +116,7 @@ int main(int argc, char** argv)
         
         */
 
+        // This whole thing would be a lot sexier if I put it in a state machine, but the goal right now is functionality not prettiness
         for (size_t i = 0; i + PACKET_SIZE <= buffer_size_nbytes; ++i)
         {
             // Check if 4 bytes starting at that position match the sync header (0x7F F0 1C AF)
