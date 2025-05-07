@@ -29,7 +29,7 @@
 ### 🧲 Phase 3: UART Integration (~2.5–3 hrs)
 - [x] Replace `/dev/tty1` hardcoded path with command-line arg
 - [x] Use `socat` to create linked PTY pair for testing
-- [ ] Read from serial port in `imu_uart_parser`
+- [ ] Read from serial port in `imu_parser`
 - [ ] Buffer incoming data and detect sync word
 - [ ] Extract 20-byte packet and call `parse_imu_packet()`
 - [ ] Print parsed values to stdout for validation
@@ -39,6 +39,7 @@
 ### ⏲️ Phase 4: Timed Execution & UDP Broadcast (~2–2.5 hrs)
 - [ ] Launch thread that executes every 80ms
 - [ ] Share latest parsed packet in thread-safe manner (with `std::mutex`)
+    - Actually, does it need to be the latest one? Or should we just be getting all of them?
 - [ ] Format parsed data into a simple UDP payload
 - [ ] Send it to `localhost` over UDP on a fixed port
 - [ ] Confirm with netcat or script that data is being sent

@@ -1,6 +1,7 @@
-#include <iostream>
 #include <unistd.h>
-#include <fcntl.h>
+#include <stdio.h>
+#include <errno.h>
+#include <fcntl.h> // for open()
 #include <termios.h>
 #include <cstring>
 #include <cstdint> // for fixed-width integer types
@@ -29,56 +30,28 @@ int configure_uart(const char* device);
 
 */
 
-/*
-    Pseudocode plan for once the above is working ok: Thread-safe communication between UART and 80ms thread
+int main(int argc, char** argv)
+{
+    // read serial port path from command-line args (default to /dev/tty1)
+    const char* dev_path = (argc > 1) ? argv[1] : "/dev/tty1";
     
-    How it should work:
+    // call configure_uart(path) -> fd
+    int fd = configure_uart(dev_path);
+    if (fd < 0)
+    {
+        perror("UART open failed");
+        return 1;
+    }
 
-    - I need one thread reading from the UART and parsing packets
-    - I need a second thread to wake up every 80ms and broadcast the most recent valid packet on localhost (double check that was the instructions)
-    - The two threads have to share a single ImuPacket struct instance (latest_packet)
-
-    Problems/race conditions maybe:
-
-    - UART thread: might be writing to latest_packet
-    - 80ms thread: might be reading from latest_packet at the same time
-    - If this happens without synchronization the data could get corrupted
-
-    Solution probably:
-
-    - std::mutex to protect access to latest_packet
-    - uart thread locks and updates latest_packet and unlocks
-    - 80ms thread locks and reads latest_packet and sends it to localhost, where the python script picks it up
-
-    - ? It might not actually be the latest packet, might just be all of them? IDK.
     
-    More advanced solution: std::atomic<std::shared_ptr<ImuPacket>> (if using smart pointers but not necessary probably)
 
-    Another solution: double buffering (but probably not needed here yet)
+    
 
-    Pseudocode for thread safety:
+    
 
-    global mutex latest_mutex
-    global ImuPacket latest_packet
+}
 
-    UART thread:
-        - When new packet is parsed:
-            lock(latest_mutex)
-            latest_packet = parsed_result
-            unlock(latest_mutex)
-
-    80ms thread:
-        loop every 80ms:
-            lock(latest_mutex)
-            copy = latest_packet
-            unlock(latest_mutex)
-            send copy over UDP
-
-    This gives both threads safe and consistent access to the same data without stepping on each other I thiiiink
-
-*/
-
-int main(int argc, char** argv) {
+int main_initial_working_version(int argc, char** argv) {
     const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
     
     if (argc > 1)
@@ -120,11 +93,13 @@ int main(int argc, char** argv) {
 
 int configure_uart(const char* device)
 {
-
     // Open the serial port for read/write, no controlling terminal, synchronous writes
+    // TODO: read man termios to actually understand these options that you got from stackoverflow
     int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
-    if (fd < 0) {
+    if (fd < 0)
+    {
         std::cerr << "Failed to open UART: " << strerror(errno) << "\n";
+        perror("Failed to open UART: %s");
         return -1;
     }
 
