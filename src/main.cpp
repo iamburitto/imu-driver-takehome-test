@@ -114,7 +114,7 @@ int main(int argc, char** argv)
                 {
                     // print parsed result (later on it'll be sending over localhost probably)
                     printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
-                        pkt.packet_count, pkt., pkt.y_rate, pkt.z_rate);
+                        pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
 
                     // Remove all bytes up through the end of that packet
                     size_t remaining = buffer_size - (i + PACKET_SIZE);
