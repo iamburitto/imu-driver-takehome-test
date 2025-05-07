@@ -22,85 +22,12 @@
 
 ## 5/6/2025
 
-- OK this is where I'm at:
-## ✅ TODO / Progress Tracker
-
----
-
-### Phase 1: Core Infrastructure (✅ done, ~3 hrs total)
-- [x] Set up Git repo and `.gitignore`
-- [x] Create initial CMake build system
-- [x] Integrate Catch2 using `FetchContent`
-- [x] Set up `test/` directory with `unit_tests` target
-- [x] Create `imu_parser.[hpp|cpp]` with clean packet struct
-- [x] Create `fendian.hpp` with endian-safe float helpers
-- [x] Validate build and linker setup with dummy test
-
----
-
-### Phase 2: Parser Development (✅ done, ~2–3 hrs total)
-- [x] Define and implement `parse_imu_packet()`
-- [x] Use `be32toh()` for integer field conversion
-- [x] Use `f_be32toh()` to convert floats from big-endian
-- [x] Validate all fields in parser against known packet layout
-- [x] Write unit tests using realistic byte buffer
-- [x] Add sender-style test using `f_htobe32()` for float fields
-- [x] Confirm all unit tests pass
-
----
-
-### 🧲 Phase 3: UART Integration (~2.5–3 hrs)
-- [x] Replace `/dev/tty1` hardcoded path with command-line arg
-- [x] Use `socat` to create linked PTY pair for testing
-- [ ] Read from serial port in `imu_uart_parser`
-- [ ] Buffer incoming data and detect sync word
-- [ ] Extract 20-byte packet and call `parse_imu_packet()`
-- [ ] Print parsed values to stdout for validation
-
----
-
-### ⏲️ Phase 4: Timed Execution & UDP Broadcast (~2–2.5 hrs)
-- [ ] Launch thread that executes every 80ms
-- [ ] Share latest parsed packet in thread-safe manner (with `std::mutex`)
-- [ ] Format parsed data into a simple UDP payload
-- [ ] Send it to `localhost` over UDP on a fixed port
-- [ ] Confirm with netcat or script that data is being sent
-
----
-
-### 🧪 Phase 5: Python Simulator (~1.5–2 hrs)
-- [ ] Generate 20-byte IMU packets with struct.pack()
-- [ ] Send packet over serial (using `pyserial`) every 20ms
-- [ ] Listen on UDP for the broadcast from the C++ parser
-- [ ] Decode UDP payload and print or validate results
-- [ ] Use `socat` to create virtual port pair for testing (looped to C++ side)
-
----
-
-### 🧼 Phase 6: Polish & Submission (~1 hr)
-- [x] Change telemetry names to include 'rdps' since that's what the prompt asks for
-- [ ] Write usage instructions in `README.md`
-- [ ] Add example `socat` and simulator commands
-- [ ] Final code comment review and formatting
-- [ ] Run end-to-end test (socat + simulator + parser + UDP)
-- [ ] Tag final commit, zip if needed, submit
-
----
-
-### 🕒 Remaining Time Estimate:
-**~8–10 hours total** depending on breaks and pace  
-(even faster with scaffolds or if simulator is lightweight)
-
----
-
-### 🎯 Pro Tips:
-- Focus on UART → parser → UDP as your “critical path”
-- Simulator can be light—just needs to show understanding
-- You’ve already built the hardest pieces!
-
 - [std::array dynamic memory: no thanks!](https://www.modernescpp.com/index.php/std-array-dynamic-memory-no-thanks/)
-
 - Pseudocode plan for separate 80ms thread later
+- Eventually we're going to execute the IMU parsing loop every `80ms` and broadcast the parsed results on the localhost network
+- But step 1 is just to make the loop parse and print packets out of the stream.
+- So we're gonna make the output look like this:
+
 ```c++
 /*
     Pseudocode plan for once the above is working ok: Thread-safe communication between UART and 80ms thread
@@ -158,24 +85,33 @@
   - [ ] Extract 20-byte packet and call `parse_imu_packet()`
   - [ ] Print parsed values to stdout for validation
 - Right now we are only going to read one byte at a time - just easier to debug that way.
+
 - In the future, its better to read multiple bytes for these reasons:
   - Data may arrive in bursts (real-world UARTs do that)
   - The hardware UART FIFO is nonzero (common in SoCs)
   - I want fewer syscalls (read() per byte gets expensive)
   - I've debugged the edges of your framing logic
-- For that more "real-world" driver, I'd write a version that reads up to N bytes, uses a fixed-size buffer with read_index and write_index, and defragments when nearing capacity, kinda like this:
-  - UART driver loop:
-    - if write_index within spitting distance of end of buffer:
-        - shift unprocessed bytes to beginning
-        - reset read_index to zero and write_index to next free space after read index
-      - read(fd, &buffer[write_index], available_space)
-      - advance write_index (should point at next free space)
-    - Parser loop:
-      - while read_index < write_index - 20:
-          - check for sync at buffer[read_index]
-          - if found and enough bytes: parse and advance read_index
-          - if not found: read_index++
+  - For that more "real-world" driver, I'd write a version that reads up to N bytes, uses a fixed-size buffer with read_index and write_index, and defragments when nearing capacity, kinda like this:
+    - UART driver loop:
+      - if write_index within spitting distance of end of buffer:
+          - shift unprocessed bytes to beginning
+          - reset read_index to zero and write_index to next free space after read index
+        - read(fd, &buffer[write_index], available_space)
+        - advance write_index (should point at next free space)
+      - Parser loop:
+        - while read_index < write_index - 20:
+            - check for sync at buffer[read_index]
+            - if found and enough bytes: parse and advance read_index
+            - if not found: read_index++
         
 - But for now I'm going to keep it easy.
+- Good guidelines for error:
+```c++
+  // Use perror for immediate, simple error reporting
+  perror("Error opening file");
+  // Use printf + strerror for custom formatting or delayed reporting
+  fprintf(stderr, "Failed to open file: %s\n", strerror(errno));
+```
 - 
+
 
