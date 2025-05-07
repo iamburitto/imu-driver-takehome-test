@@ -128,7 +128,7 @@ int main(int argc, char** argv)
                 ImuPacket pkt;
                 if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
                 {
-                    printf("[UART] Found sync header at offset %z\n", i);
+                    printf("[UART] Found sync header at offset %zd\n", i);
                     printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
                         pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
 
