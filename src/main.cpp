@@ -66,7 +66,7 @@ int main(int argc, char** argv)
         [UART] Found sync header at offset 12
         [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
         
-        Future goal:
+        Next:
 
         1. Make loop run every 80ms to get raw data sent by python program
         2. Broadcast the data to localhost read by python program to verify data matches
@@ -78,7 +78,7 @@ int main(int argc, char** argv)
     uint8_t buffer[UART_BUFFER_CAPACITY];
 
     // create a small sliding window for sync detection
-    size_t buffer_size = 0; // buffer size is the current number of bytes in the buffer
+    size_t buffer_size_nbytes = 0; // buffer size is the current number of bytes in the buffer
 
     while (true)
     {
@@ -87,43 +87,59 @@ int main(int argc, char** argv)
         if (read(fd, &byte, 1) != 1) continue;
 
         // if the buffer is full
-        if(buffer_size >= UART_BUFFER_CAPACITY)
+        if(buffer_size_nbytes >= UART_BUFFER_CAPACITY)
         {
             // shift all the data left by 1 to make space
             memmove(&buffer[0], &buffer[1], UART_BUFFER_CAPACITY - 1);
 
             // update buffer size
-            buffer_size = UART_BUFFER_CAPACITY - 1;
+            buffer_size_nbytes = UART_BUFFER_CAPACITY - 1;
         }
 
         // append new byte to end of buffer
-        buffer[buffer_size] = byte;
+        buffer[buffer_size_nbytes] = byte;
     
         // increment buffer_size
-        buffer_size++;
+        buffer_size_nbytes++;
 
-        /* Scan for sync header until there's not enough bytes for a full packet */
-        for (size_t i = 0; i + PACKET_SIZE <= buffer_size; ++i)
+        /*
+            Scan for sync header until there's not enough bytes for a full packet
+            
+            Visualizing it:
+            Buffer is a scrolling strip of tape:
+            You read in bytes on the right.
+
+            Right now, I  scan from the left for a 4-byte sync window.
+            When we parse a packet, we cut it out, and slide the remaining tape left.
+
+            If we don't wanna make an actual circular buffer implementation, we can
+            just skip the cut and paste until we get close to the end.
+        
+        */
+
+        for (size_t i = 0; i + PACKET_SIZE <= buffer_size_nbytes; ++i)
         {
             // Check if 4 bytes starting at that position match the sync header (0x7F F0 1C AF)
             if( memcmp(&buffer[i], SYNC_BYTES, 4) == 0)
             {
                 // Call parse_imu_packet() on 20-byte window starting there
+
+                // TODO: I think I gotta check and see if there's actually room left for 20 bytes since we don't wrap right now
                 ImuPacket pkt;
                 if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
                 {
-                    // print parsed result (later on it'll be sending over localhost probably)
+                    printf("[UART] Found sync header at offset %z\n", i);
                     printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
                         pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
 
                     // Remove all bytes up through the end of that packet
-                    size_t remaining = buffer_size - (i + PACKET_SIZE);
+                    size_t remaining = buffer_size_nbytes - (i + PACKET_SIZE);
 
-                    // shift buffer left
+                    // shift buffer left (later we can optimize to only shift when 20 byte window hits the end)
                     memmove(&buffer[0], &buffer[i + PACKET_SIZE], remaining);
 
                     // update buffer length
-                    buffer_size = remaining;
+                    buffer_size_nbytes = remaining;
 
                     break;
                 }
@@ -132,7 +148,7 @@ int main(int argc, char** argv)
     } 
 }
 
-int main_initial_working_version(int argc, char** argv) {
+int main_initial_test_version(int argc, char** argv) {
     const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
     
     if (argc > 1)
