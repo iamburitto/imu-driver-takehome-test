@@ -25,11 +25,9 @@
 - OK this is where I'm at:
 ## ✅ TODO / Progress Tracker
 
-This plan gets everything working and shows your understanding across threads, parsing, broadcast, and simulation. You're very close to the finish line.
-
 ---
 
-### ✨ Phase 1: Core Infrastructure (✅ done, ~3 hrs total)
+### Phase 1: Core Infrastructure (✅ done, ~3 hrs total)
 - [x] Set up Git repo and `.gitignore`
 - [x] Create initial CMake build system
 - [x] Integrate Catch2 using `FetchContent`
@@ -40,7 +38,7 @@ This plan gets everything working and shows your understanding across threads, p
 
 ---
 
-### 🔎 Phase 2: Parser Development (✅ done, ~2–3 hrs total)
+### Phase 2: Parser Development (✅ done, ~2–3 hrs total)
 - [x] Define and implement `parse_imu_packet()`
 - [x] Use `be32toh()` for integer field conversion
 - [x] Use `f_be32toh()` to convert floats from big-endian
@@ -80,6 +78,7 @@ This plan gets everything working and shows your understanding across threads, p
 ---
 
 ### 🧼 Phase 6: Polish & Submission (~1 hr)
+- [x] Change telemetry names to include 'rdps' since that's what the prompt asks for
 - [ ] Write usage instructions in `README.md`
 - [ ] Add example `socat` and simulator commands
 - [ ] Final code comment review and formatting
@@ -98,4 +97,85 @@ This plan gets everything working and shows your understanding across threads, p
 - Focus on UART → parser → UDP as your “critical path”
 - Simulator can be light—just needs to show understanding
 - You’ve already built the hardest pieces!
+
+- [std::array dynamic memory: no thanks!](https://www.modernescpp.com/index.php/std-array-dynamic-memory-no-thanks/)
+
+- Pseudocode plan for separate 80ms thread later
+```c++
+/*
+    Pseudocode plan for once the above is working ok: Thread-safe communication between UART and 80ms thread
+    
+    How it should work:
+
+    - I need one thread reading from the UART and parsing packets
+    - I need a second thread to wake up every 80ms and broadcast the most recent valid packet on localhost (double check that was the instructions)
+    - The two threads have to share a single ImuPacket struct instance (latest_packet)
+
+    Problems/race conditions maybe:
+
+    - UART thread: might be writing to latest_packet
+    - 80ms thread: might be reading from latest_packet at the same time
+    - If this happens without synchronization the data could get corrupted
+
+    Solution probably:
+
+    - std::mutex to protect access to latest_packet
+    - uart thread locks and updates latest_packet and unlocks
+    - 80ms thread locks and reads latest_packet and sends it to localhost, where the python script picks it up
+
+    - ? It might not actually be the latest packet, might just be all of them? IDK.
+    
+    More advanced solution: std::atomic<std::shared_ptr<ImuPacket>> (if using smart pointers but not necessary probably)
+
+    Another solution: double buffering (but probably not needed here yet)
+
+    Pseudocode for thread safety:
+
+    global mutex latest_mutex
+    global ImuPacket latest_packet
+
+    UART thread:
+        - When new packet is parsed:
+            lock(latest_mutex)
+            latest_packet = parsed_result
+            unlock(latest_mutex)
+
+    80ms thread:
+        loop every 80ms:
+            lock(latest_mutex)
+            copy = latest_packet
+            unlock(latest_mutex)
+            send copy over UDP
+
+    This gives both threads safe and consistent access to the same data without stepping on each other I thiiiink
+
+*/
+```
+- Ugh its like almost 7pm, been working on fixing a blue screen of death
+- Working on updating the main loop to actually parse packets out of the stream now rather than just printing them.
+  - [ ] Read from serial port in `imu_uart_parser`
+  - [ ] Buffer incoming data and detect sync word
+  - [ ] Extract 20-byte packet and call `parse_imu_packet()`
+  - [ ] Print parsed values to stdout for validation
+- Right now we are only going to read one byte at a time - just easier to debug that way.
+- In the future, its better to read multiple bytes for these reasons:
+  - Data may arrive in bursts (real-world UARTs do that)
+  - The hardware UART FIFO is nonzero (common in SoCs)
+  - I want fewer syscalls (read() per byte gets expensive)
+  - I've debugged the edges of your framing logic
+- For that more "real-world" driver, I'd write a version that reads up to N bytes, uses a fixed-size buffer with read_index and write_index, and defragments when nearing capacity, kinda like this:
+  - UART driver loop:
+    - if write_index within spitting distance of end of buffer:
+        - shift unprocessed bytes to beginning
+        - reset read_index to zero and write_index to next free space after read index
+      - read(fd, &buffer[write_index], available_space)
+      - advance write_index (should point at next free space)
+    - Parser loop:
+      - while read_index < write_index - 20:
+          - check for sync at buffer[read_index]
+          - if found and enough bytes: parse and advance read_index
+          - if not found: read_index++
+        
+- But for now I'm going to keep it easy.
+- 
 
