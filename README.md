@@ -59,18 +59,29 @@ But sometimes its nice to have one task with multiple threads - a consumer threa
 
 “execute the IMU parsing code every 80ms and broadcast the parsed results on the localhost network.”
 
-Does that mean “store and broadcast everything” not "just broadcast the most up-to-date result?"?
 
-Maybe. But I'm assuming the latter in my code:
 
-- Thread A (UART parser running in background thread): parses packets as fast as bytes arrive, but doesn't hold onto all of them, just puts the latest one in a global struct
-- Thread B (triggered every 80ms by scheduler): wakes up, grabs the latest parsed packet (shared memory with thread A and protected with mutexes), and broadcasts that to localhost
+Does that mean “parse and broadcast as many packets as possible once every 80ms”, or "parse all packets but drop most on the floor for now and only broadcast the latest packet every 80ms"?
+
+I wasn't sure. Probably the former, but I decided to assume the latter and do two threads:
+
+- "producer" == Thread A (UART parser running in background thread): parses packets as fast as bytes arrive but only stores the most recent one in a global struct (shared memory with thread B)
+
+- "consumer" == Thread B (triggered every 80ms by scheduler): wakes up, grabs the latest parsed packet (shared memory with thread A), and broadcasts that to localhost
+
 - This aligns with:
   - "resource-constrained" → no growing queues
   - Realistic embedded stuff (e.g., updating a housekeeping packet on a schedule)
 
-- It might be simpler than that. Maybe they just want one thread to be triggered every 80ms and parse as much data as it can?
--
+NOTE: This could be configured all sorts of ways depending on the architecture.
+
+Other considerations:
+
+If it was a real IMU I'd want to know how many samples per second this IMU produces and how noisy it is - otherwise I don't really know how much data I'm dealing with, only the maximum possible number of packets from the baud rate.
+
+The only other IMU I ever worked with produced 1000 samples a second and was too noisy even after configuring the IMU to average its data internally, so we had to average/process it again to get rid of the noise and get it down to 10Hz for GNC's 10Hz flight control model (Nyquist theorem stuff.) There was too much latency to do that in software for the flight computer, so I did it on the SOC's FPGA.
+
+In real life GNC would probably get only the most recent telemetry point when the FCSW model steps, and you'd likely have configurable data rates for all other downlink/storage destinations - high rates for gathering data and debugging, lower data rates for historical telemetry, and all configurable to different rates for different situations.
 
 4. In Python, design a simple simulator/tester to drive your IMU parser. 
 
