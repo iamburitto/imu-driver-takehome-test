@@ -148,7 +148,7 @@ void broadcaster_80ms_thread()
 
         // Send to localhost:9000
         sendto(sock, buffer, strlen(buffer), 0,
-           (struct sockaddr*)&dest_addr, sizeof(dest_addr));
+           (struct sockaddr*)&dest_address, sizeof(dest_address));
     }
 }
 
