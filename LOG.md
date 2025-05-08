@@ -132,10 +132,8 @@ Assumptions:
   - Realistic embedded stuff (e.g., updating a housekeeping packet on a schedule)
 
 - It might be simpler than that. Maybe they just want one thread to be triggered every 80ms and parse as much data as it can?
-- The only other IMU I ever worked with produced like literally 1000 samples a second, and we had to average them on the FPGA to get it to make sense at all even after setting the thing up to do its own internal averaging, and simulating the noise was a huge pain in the ass
-- Maybe I should ask a GNC person, idk
-- This whole packet parser would be so much sexier in a state machine. If I had time to redo it I'd do that again.
-- Too bad I don't have the code I wrote last time.
+- The only other IMU I ever worked with produced like literally 1000 samples a second, and we had to average them on the FPGA to get it to make sense at all even after setting the thing up to do its own internal averaging, and simulating the noise was a huge pain
+- I would ask a GNC person what they wanted
 
 ## 5/7/2025
 
@@ -150,4 +148,16 @@ Assumptions:
   - check for open file descriptors: `lsof -p <pid>`
   - check for max number of file descriptors per process: `ulimit -n`
   - watch for "too many open files" errors (leaking sockets), probs not important for this test
-- 
+- Updated README to explain the endian business and assumptions/background for IMU choices better
+- Had to install python on this WSL2 ubuntu instance (I don't have my old awesome debian one anymore)
+- Didn't set up venv because I'm tired, but on a fresh system I 100% would
+```bash
+sudo apt update
+sudo apt upgrade
+sudo apt install python3 python3-pip
+python3 --version
+sudo apt install python3-venv
+```
+- I'd go watch [this video](https://www.youtube.com/watch?v=dC1A8t-G3tw) if I wanted to get venv with python2/3 working well together
+
+
