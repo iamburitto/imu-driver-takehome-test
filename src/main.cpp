@@ -1,5 +1,5 @@
 
-// maybe I don't need some of these c++ wrapper ones
+// maybe I don't need some of these c++ wrapper ones, gotta clean it up
 #include <cstdint> 
 #include <cstring>
 #include <cstdlib>
@@ -82,7 +82,7 @@ void uart_reader_thread(int fd) // scroll to the end of this file for a list of 
                     g_latest_mutex.lock(); // std::lock_guard<std::mutex> lock(g_latest_mutex); guards against early returns/exceptions and unlocks automagically says the internet
                     g_latest_packet = pkt; // shallow copy is ok here
 
-                    printf("[READER][UART] Found sync header at offset %zd\n", i);
+                    // printf("[READER][UART] Found sync header at offset %zd\n", i);
                     printf("[READER][IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
                         pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
 
@@ -135,17 +135,17 @@ void broadcaster_80ms_thread()
         g_latest_mutex.lock(); // std::lock_guard<std::mutex> lock(g_latest_mutex); guards against early returns/exceptions and unlocks automagically says the internet
         imu_packet_t pkt = g_latest_packet; // shallow copy ok here
         g_latest_mutex.unlock();
-
-        // send this to localhost later
-        printf("[BROADCAST] Packet #%u: X=%.2f Y=%.2f Z=%.2f\n",
-            pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
         
         // Format packet into a text buffer (later: maybe binary - definitely binary if this was being used to send out commands to a real emulator, or something actually on the spacecraft and not just a python script on the ground
         char buffer[128];
         snprintf(buffer, sizeof(buffer),
             "Packet #%u: X=%.2f Y=%.2f Z=%.2f",
             pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
-
+        
+        // send this to localhost later
+        printf("[BROADCAST] Packet #%u: X=%.2f Y=%.2f Z=%.2f\n",
+            pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
+        
         // Send to localhost:9000
         sendto(sock, buffer, strlen(buffer), 0,
            (struct sockaddr*)&dest_address, sizeof(dest_address));
