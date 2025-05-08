@@ -34,6 +34,16 @@ int main(int argc, char** argv)
     // Join both threads at the end (to keep the program running)
 }
 
+void uart_reader_loop(int fd)
+{
+    // The uart reading/parsing loop we put in main v2 goes here
+
+    // On successful packet:
+        // 1. lock the mutex
+        // 2. update the latest IMU packet
+        // 3. unlock the mutex
+}
+
 int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
 {
     /*
