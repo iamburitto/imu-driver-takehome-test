@@ -94,15 +94,21 @@ To test this we need 3 terminal windows.
 In a nutshell:
 
 ```bash
-# Terminal 1
+# Terminal 1: socat to link two PTYs (driver-to-emulator connection usually)
 socat -d -d pty,raw,echo=0 pty,raw,echo=0
-# → Note the two PTY paths it prints (say /dev/pts/5 and /dev/pts/7)
 
-# Terminal 2
-./bin/imu_uart_parser /dev/pts/5
+# Note the two PTY paths it prints - these are kinda like your virtual TX/RX UART ports.:
+N PTY is /dev/pts/5 # choose this as RX (driver reads from it)
+N PTY is /dev/pts/7 # choose this as TX (emulator writes to it)
 
-# Terminal 3
+# Terminal 2: Run C++ UART parser (device under test: basically IMU driver, but doesn't command, only receives telemetry)
+./bin/imu_uart_parser /dev/pts/5 # driver reads from /dev/pts/5, finds sync, parses packets, and broadcasts them.
+
+# Terminal 3: Send fake IMU packets (python emulator will do this later)
 echo -ne '\x7f\xf0\x1c\xaf...' > /dev/pts/7
+
+# Terminal 4: listen for UDP telemetry broadcast from driver (python emulator will do this later and validate telemetry it sent)
+netcat -ul 9000
 ```
 
 In more detail:
@@ -145,5 +151,5 @@ The simulated IMU data bytes will show up in `terminal 1`:
 Read 20 bytes: 7F F0 1C AF 00 00 00 01 41 20 00 00 41 A0 00 00 42 20 00 00
 ```
 
-
+In `terminal 4`: listen for UDP telemetry broadcast
 
