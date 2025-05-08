@@ -1,40 +1,27 @@
-#include <unistd.h>
+
+#include <pthread.h>
+#include <unistd.h> // POSIX standard constants
 #include <stdio.h>
-#include <errno.h>
-#include <fcntl.h> // for open()
+#include <fcntl.h> // for file control operstions like open()
 #include <termios.h>
+#include <time.h> // for nanosleep()
+#include <errno.h>
+#include <stdint.h> // for fixed-width integer types
+
+// maybe I don't need these c++ wrapper ones?
+#include <cstdint> 
 #include <cstring>
-#include <cstdint> // for fixed-width integer types
-#include <cstdlib> // for size_t
-#include "imu_parser.hpp"
+#include <cstdlib>
 
-int configure_uart(const char* device);
+#include "imu_parser.hpp" // includes my fendian.hpp to deal with endianness for floats
 
-/*
-    Pseudocode plan for the new main loop: UART + parser:
-
-    main(argc, argv):
-    - Read serial port path from command-line args (default to /dev/tty1)
-    - Call configure_uart(path) → fd
-    - Create a 1024-byte read buffer
-    - Create a small sliding window or queue for sync detection
-    - Loop:
-        - read() from fd into buffer
-        - for each byte:
-            - Push byte into temporary buffer
-            - Check if the last 4 bytes match sync pattern
-                - If yes, check if you have at least 20 bytes
-                - Call parse_imu_packet() on the 20-byte window
-                - Print out result
-
-        - This loop should only run until it finds valid packets.
-        - Later I will plug the parsed result into a thread-safe shared struct.
-*/
-
+        
 // TODO: put these somewhere better later
 constexpr size_t UART_BUFFER_CAPACITY = 1024; // TODO: calculate how big it actually needs to be at this baud rate for 20 byte packets and running every 80ms
 constexpr size_t PACKET_SIZE  = 20;
 constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
+
+int configure_uart(const char* device);
 
 /*
     Right now this main() is a simple single-threaded loop that:
@@ -169,6 +156,9 @@ int main(int argc, char** argv)
         */
 }
 
+/*
+    just to make sure I could get bytes from the emulator side with socat
+*/
 int main_initial_test_version(int argc, char** argv) {
     const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
     
