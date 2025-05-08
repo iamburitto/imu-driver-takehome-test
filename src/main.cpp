@@ -1,22 +1,32 @@
 
-#include <pthread.h>
-#include <unistd.h> // POSIX standard constants
-#include <stdio.h>
-#include <fcntl.h> // for file control operstions like open()
-#include <termios.h>
-#include <time.h> // for nanosleep()
-#include <errno.h>
-#include <stdint.h> // for fixed-width integer types
-
 // maybe I don't need these c++ wrapper ones?
 #include <cstdint> 
 #include <cstring>
 #include <cstdlib>
 
+/* for std::thread */
+#include <thread>
+#include <mutex>
+#include <chrono>
+#include <cstdio>
+
+#include <unistd.h> // POSIX standard constants
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h> // for fixed-width integer types
+#include <time.h> // for nanosleep()
+
+#include <fcntl.h> // for file control operstions like open()
+#include <termios.h>
+#include <errno.h>
+
 #include "imu_parser.hpp" // includes my fendian.hpp to deal with endianness for floats
 
-        
-// TODO: put these somewhere better later
+// global shared packet + mutex
+ImuPacket latest_packet;
+std::mutex latest_mutex;
+
+// IMU packet parsing constants
 constexpr size_t UART_BUFFER_CAPACITY = 1024; // TODO: calculate how big it actually needs to be at this baud rate for 20 byte packets and running every 80ms
 constexpr size_t PACKET_SIZE  = 20;
 constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
@@ -40,8 +50,20 @@ void uart_reader_loop(int fd)
 
     // On successful packet:
         // 1. lock the mutex
-        // 2. update the latest IMU packet
+        // 2. latest_packet = parsed
         // 3. unlock the mutex
+}
+
+void broadcaster_loop(int fd)
+{
+    while(true)
+    {
+        // 1. sleep for 80ms
+        // 2. lock mutex
+        // 3. copy latest IMU packet
+        // 4. unlock mutex
+        // 5. print it to console (later on send it to localhost)
+    }
 }
 
 int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
