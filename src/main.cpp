@@ -130,6 +130,11 @@ int main(int argc, char** argv)
     return 0;
 }
 
+/*
+    EVERYTHING AFTER THIS IS JUST PREVIOUS VERSIONS OF MAIN LOOP WHILE I WAS GETTING THE CODE WORKING...
+    PLUS SOME OPTIMIZATION IDEAS THAT SHOULD BE MOVED TO THE README LATER BUT HERE'S A NOTE IF I FORGET
+*/
+
 int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
 {
     /*
