@@ -1,21 +1,24 @@
+# IMU UART Parser and IMU simulator - Takehome Assignment
+
 This project simulates an IMU data stream over UART and parses packets into structured telemetry, which it broadcasts via UDP on a fixed schedule.
 
 <!-- vscode-markdown-toc -->
 * 1. [Prompt](#Prompt)
-* 2. [Project Structure](#ProjectStructure)
-* 3. [How to build](#Howtobuild)
-* 4. [How to test `imu_parser` using `socat` to create two linked virtual serial ports](#Howtotestimu_parserusingsocattocreatetwolinkedvirtualserialports)
-	* 4.1. [In a nutshell:](#Inanutshell:)
-	* 4.2. [In more detail:](#Inmoredetail:)
-* 5. [How to test with python simulator (final product yo)](#Howtotestwithpythonsimulatorfinalproductyo)
-	* 5.1. [Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)](#Results:visuallyverifymatchingoutputfromimu_parserandimu_simulator.pyitworks)
-* 6. [Next steps in no particular order](#Nextstepsinnoparticularorder)
+* 2. [`Answer` to question 2 (endianness):](#Answertoquestion2endianness:)
+* 3. [Project Structure](#ProjectStructure)
+* 4. [How to build](#Howtobuild)
+* 5. [How to test `imu_parser` using `socat` to create two linked virtual serial ports](#Howtotestimu_parserusingsocattocreatetwolinkedvirtualserialports)
+	* 5.1. [In a nutshell:](#Inanutshell:)
+	* 5.2. [In more detail:](#Inmoredetail:)
+* 6. [How to test with python simulator (final product yo)](#Howtotestwithpythonsimulatorfinalproductyo)
+	* 6.1. [Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)](#Results:visuallyverifymatchingoutputfromimu_parserandimu_simulator.pyitworks)
+* 7. [Next steps in no particular order](#Nextstepsinnoparticularorder)
 
 <!-- vscode-markdown-toc-config
 	numbering=true
 	autoSave=true
 	/vscode-markdown-toc-config -->
-<!-- /vscode-markdown-toc --># IMU UART Parser and IMU simulator - Takehome Assignment
+<!-- /vscode-markdown-toc -->
 
 ##  1. <a name='Prompt'></a>Prompt
 
@@ -36,34 +39,40 @@ An IMU outputs a byte stream at `921600` baud with a packet definition described
 - Assume data is formatted according to `IEEE-754`
 - Assume network (big endian) byte order
 
-1. Write the C++ code to parse data over a UART (`/dev/tty1`) and decommutate the byte stream into the four fields: 
+Write the C++ code to parse data over a UART (`/dev/tty1`) and decommutate the byte stream into the four fields: 
 
 - Packet_Count 
 - X_Rate_rdps 
 - Y_Rate_rdps 
 - Z_Rate_rdps
 
-2. What modifications, if any, would you need to make to the code from 1) if the Linux host was a little endian processor? Describe those modifications.
+What modifications, if any, would you need to make to the code from 1) if the Linux host was a little endian processor? Describe those modifications.
+
+In Python, design a simple simulator/tester to drive your IMU parser. 
+
+- The simulator should send a string of bytes in the proper format over the UART for your parser to accept
+- The data contained in the byte string can be generated in any way of your choosing to best test the parser.
+- Subsequently, it should then read the broadcasted results from 3) on the localhost network to validate the output.
+
+##  2. <a name='Answertoquestion2endianness:'></a>`Answer` to question 2 (endianness):
 
 No modifications are necessary (if we can assume that the IMU packets themselves really are big-endian.)
 
-It shouldn't matter if the linux host is running on a little endian processor or a big endian processor -  `htobe32()` and `be32toh()` check endianness: they swap bytes if the host is little endian, and do nothing at all if the host is big endian. That makes them portable, though I'm sure there are weird exceptions.
+It shouldn't matter if the linux host is running on a little endian processor or a big endian processor - `htobe32()` and `be32toh()` check endianness: they swap bytes if the host is little endian, and do nothing at all if the host is big endian. That makes them portable, though I'm sure there are weird exceptions.
 
 It works like this:
 
-- Packet sender uses `htobe32()` to convert host byte order to network byte order (big endian) for each multi-byte field 
+- Packet sender uses `htobe32()` to convert host byte order to network byte order (big endian) for each multi-byte field
 - Packet receiver uses `be32toh()` to convert network byte order (big endian) to host byte order for each multi-byte field.
+- Usually its more of a pain to do endianness conversion for floats and doubles, and the IMU packet in this case has floats.
+- But since we are assuming `IEE-754` floats (4 bytes and normal formatting), I can cheat by using unions to pretend the floats are `uint32_t` so I can still use `htobe32()` and `be32toh()`.
+- To see how that works, check out my my wrapper functions `f_htobe32()` and `f_be32toh()` in `include/fendian.hpp`.
 
-Usually its more of a pain in the a** for floats and doubles, and the IMU packet in this case has floats.
-Since we are assuming `IEE-754` floats, I cheat by using unions to pretend the floats are `uint32_t` so I can still use `htobe32()` and `be32toh()` - see my wrapper functions `f_htobe32()` and `f_be32toh()` in `include/fendian.hpp`.
+`IMPORTANT NOTE`: I've been assuming that the IMU packet protocol itself is all big-endian. If that was NOT true, and it turns out that the IMU fields can be little-endian or a mix of big-endian and little-endian (gross but common), then we'd have to use `htole32()` and `le32toh()` in addition to or instead of `htobe32()` and `be32toh()`, which means also adding 2 additional wrapper functions to `fendian.hpp` for the floats: `f_htole32()` and `f_le32toh()`.
 
-`NOTE`: I've been assuming that the IMU packet protocol itself is all big-endian.
+- I'm sure there would be doubles (8 bytes) too at some point, so I'd probably want to do what I've done in the past and add 4 more wrapper functions to do the same endianness byte-flipping for double packet fields (`d_htole32()`, etc, etc, etc.).
 
-If that wasn't true, and it turns out that the IMU fields can be little-endian or a mix of big-endian and little-endian (gross but common), then we'd have to use `htole32()` and `le32toh()` in addition or instead, and I'd have to add `f_htole32()` and `f_le32toh()` to `fendian.hpp` for the floats.
-
-I'd probably want to add 8-byte double versions of all 4 wrapper functions in the future too (`d_htole32()`, etc.), and extend it as necessary for other weird data types.
-
-3. Write a C++ Linux program designed to execute in a resource constrained, multi-threaded 
+Write a C++ Linux program designed to execute in a resource constrained, multi-threaded 
 environment that will execute the IMU parsing code every `80ms` and broadcast the parsed results on the localhost network.
 
 - “execute the IMU parsing code every 80ms and broadcast the parsed results on the localhost network.”
@@ -82,7 +91,7 @@ I wasn't sure. I decided to assume the latter and do two threads for fun - could
   - "resource-constrained" → no growing queues
   - Realistic embedded stuff (e.g., updating a housekeeping packet on a schedule)
 
-NOTE: This could be done all sorts of ways depending on the architecture. In reality, some threads are time critical and tightly controlled with extra knobs and buttons (CPU, start time, end time, priority, etc etc), and we'd probably want Linux RT.
+`NOTE`: This could be done all sorts of ways depending on the architecture. In reality, some threads are time critical and tightly controlled with extra knobs and buttons (CPU, start time, end time, priority, etc etc), and we'd probably want Linux RT.
 
 Other considerations:
 
@@ -94,20 +103,14 @@ GNC would probably get only the most recent telemetry point when the FCSW model 
 
 It all depends on what mission operations and GNC folks want.
 
-4. In Python, design a simple simulator/tester to drive your IMU parser. 
-
-- The simulator should send a string of bytes in the proper format over the UART for your parser to accept
-- The data contained in the byte string can be generated in any way of your choosing to best test the parser.
-- Subsequently, it should then read the broadcasted results from 3) on the localhost network to validate the output.
-
-##  2. <a name='ProjectStructure'></a>Project Structure
+##  3. <a name='ProjectStructure'></a>Project Structure
 
 - `src/` → C++ source code
 - `include/` → C++ headers
 - `test/` → catch2 unit tests (`imu_simulator.py`) and `imu_simulator.py`
 - `build/` → CMake build output (gitignored), the `bin` directory has the `unit_tests` and `imu_parser` executables
 
-##  3. <a name='Howtobuild'></a>How to build
+##  4. <a name='Howtobuild'></a>How to build
 
 Everything:
 
@@ -130,7 +133,7 @@ Randomness seeded to: 1089831589
 All tests passed (1 assertion in 1 test case)
 ```
 
-##  4. <a name='Howtotestimu_parserusingsocattocreatetwolinkedvirtualserialports'></a>How to test `imu_parser` using `socat` to create two linked virtual serial ports
+##  5. <a name='Howtotestimu_parserusingsocattocreatetwolinkedvirtualserialports'></a>How to test `imu_parser` using `socat` to create two linked virtual serial ports
 
 A `pty` is a `pseudoterminal` (fake serial port) when we don't have access to an actual hardware terminal serial port (`tty`).
 
@@ -145,7 +148,7 @@ Anything written to one side will show up on the other side.
 
 To test this we need 3 terminal windows.
 
-###  4.1. <a name='Inanutshell:'></a>In a nutshell:
+###  5.1. <a name='Inanutshell:'></a>In a nutshell:
 
 ```bash
 # Terminal 1: socat to created two linked PTYs (virtual serial ports TX/RX)
@@ -165,7 +168,7 @@ echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x
 netcat -ul 9000
 ```
 
-###  4.2. <a name='Inmoredetail:'></a>In more detail:
+###  5.2. <a name='Inmoredetail:'></a>In more detail:
 
 In `terminal 1`: create two linked virtual serial ports:
 
@@ -205,7 +208,7 @@ The simulated IMU data bytes will show up in `terminal 1`:
 Read 20 bytes: 7F F0 1C AF 00 00 00 01 41 20 00 00 41 A0 00 00 42 20 00 00
 ```
 
-##  5. <a name='Howtotestwithpythonsimulatorfinalproductyo'></a>How to test with python simulator (final product yo)
+##  6. <a name='Howtotestwithpythonsimulatorfinalproductyo'></a>How to test with python simulator (final product yo)
 
 Replace terminal 3 echo and terminal 4 netcat with a single terminal that calls the python script in `/test/imu_simulator.py`:
 
@@ -230,7 +233,7 @@ or:
 python3 imu_simulator.py /dev/pts/7 --udp_port 9100 # optional
 ```
 
-###  5.1. <a name='Results:visuallyverifymatchingoutputfromimu_parserandimu_simulator.pyitworks'></a>Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)
+###  6.1. <a name='Results:visuallyverifymatchingoutputfromimu_parserandimu_simulator.pyitworks'></a>Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)
 
 The packets being sent out by the python script over the PTY should be echoed back in UDP.
 
@@ -387,7 +390,7 @@ RECV: Packet #33: X=10.00 Y=23.00 Z=45.00
 RECV: Packet #34: X=11.00 Y=24.00 Z=46.00
 ```
 
-##  6. <a name='Nextstepsinnoparticularorder'></a>Next steps in no particular order
+##  7. <a name='Nextstepsinnoparticularorder'></a>Next steps in no particular order
 
 - programatically verify both sides match in the simulator script (visually they do)
 - clean and simplify, get rid of extraneous stuff that might confuse people before a real code review
