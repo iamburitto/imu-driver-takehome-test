@@ -3,7 +3,7 @@
 int configure_uart(const char* device)
 {
     // Open the serial port for read/write, no controlling terminal, synchronous writes
-    // TODO: read man termios to actually understand these options that I got from stackoverflow
+    // TODO: read man termios to actually understand these options that I finaegled together from stack overflow
     printf("Opening serial port: %s\n", device);
     int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
     if (fd < 0)
@@ -40,7 +40,9 @@ int configure_uart(const char* device)
     // Enable receiver, ignore modem control lines
     tty.c_cflag |= (CLOCAL | CREAD);
 
-    // Set VMIN and VTIME so read() returns after 1 byte or timeout (100ms timeout default I Think? might cause problem later with 80ms loop)
+    // Set VMIN and VTIME so read() returns after 1 byte or timeout
+    // 100ms timeout default I Think? might cause problem later, we might want this to be different if not just reading 1 byte at a time
+    // probably depends a lot on UART IP and/or hardware depending on what this is running on, gotta fiddle, gotta hook up saleae
     tty.c_cc[VMIN]  = 1;
     tty.c_cc[VTIME] = 1;
 
