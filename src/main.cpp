@@ -20,6 +20,7 @@
 #include <termios.h>
 #include <errno.h>
 
+#include "uart.hpp"
 #include "imu_parser.hpp" // includes my fendian.hpp to deal with endianness for floats
 
 // global shared packet + mutex
@@ -31,16 +32,79 @@ constexpr size_t UART_BUFFER_CAPACITY = 1024; // TODO: calculate how big it actu
 constexpr size_t PACKET_SIZE  = 20;
 constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
 
-int configure_uart(const char* device);
-
-void uart_reader_loop(int fd)
+void uart_reader_loop(int fd) // scroll to the end of this file for a list of possible optimizations
 {
     // The uart reading/parsing loop we put in main v2 goes here
 
-    // On successful packet:
-        // 1. lock the mutex
-        // 2. latest_packet = parsed
-        // 3. unlock the mutex
+    /*
+        1. Reads raw bytes from the UART port
+        2. Buffers them
+        3. Scans for the 0x7F F0 1C AF sync header (sliding window)
+        4. Extracts a full 20-byte packet
+        5. Passes it to parse_imu_packet()
+        6. Prints the result to stdout
+
+        Example output: 
+
+        [UART] Found sync header at offset 12
+        [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
+
+    */
+
+    uint8_t buffer[UART_BUFFER_CAPACITY];
+    size_t buffer_size_nbytes = 0;
+
+    while (true)
+    {
+        uint8_t byte;
+        if (read(fd, &byte, 1) != 1) continue;
+
+        if(buffer_size_nbytes >= UART_BUFFER_CAPACITY)
+        {
+            // shift all the data left by 1 to drop the oldest byte and make space
+            memmove(&buffer[0], &buffer[1], UART_BUFFER_CAPACITY - 1);
+            buffer_size_nbytes = UART_BUFFER_CAPACITY - 1;
+        }
+
+        // append new byte to end of buffer
+        buffer[buffer_size_nbytes] = byte;
+        buffer_size_nbytes++;
+
+        // NOTE: This whole thing would be a lot easier for me to read personally if I put it in a state machine,
+        // but the goal right now is functionality not prettiness, and some folks don't like state machines as much as I do.
+
+        // scan for SYNC word at start of 20 byte window 
+        for (size_t i = 0; i + PACKET_SIZE <= buffer_size_nbytes; ++i)
+        {
+            // Check if 4 bytes starting at that position match the sync header (0x7F F0 1C AF)
+            if( memcmp(&buffer[i], SYNC_BYTES, 4) == 0)
+            {
+                ImuPacket pkt;
+                if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
+                {
+                    latest_mutex.lock();
+
+                    latest_packet = pkt; // shallow copy is ok here
+                    printf("[UART] Found sync header at offset %zd\n", i);
+                    printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
+                        pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
+
+                    latest_mutex.unlock();
+
+                    // Remove all bytes up through the end of that packet
+                    size_t remaining = buffer_size_nbytes - (i + PACKET_SIZE);
+
+                    // shift buffer left to get rid of the packet
+                    memmove(&buffer[0], &buffer[i + PACKET_SIZE], remaining);
+
+                    // update buffer length
+                    buffer_size_nbytes = remaining;
+
+                    break;
+                }
+            }
+        }
+    } 
 }
 
 void broadcaster_loop()
@@ -62,6 +126,8 @@ int main(int argc, char** argv)
     const char* port = (argc > 1) ? argv[1] : "/dev/tty1"; // pass in /dev/pts/X for testing
     int fd = configure_uart(port);
     if (fd < 0) return 1;
+
+    // I'd really rather use pthreads directly, might make a new version after this. More control over time.
 
     // Start UART parser thread
     std::thread reader(uart_reader_loop, fd);
@@ -177,36 +243,6 @@ int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
         }
     } 
 
-    /*
-        Visualizing the above and possible optimizations:
-                
-        Buffer is a scrolling strip of tape:
-        You read in bytes on the right.
-
-        Right now, I  scan from the left for a 4-byte sync window.
-        When we parse a packet, we cut it out, and slide the remaining tape left.
-
-        Optimizations:
-
-        If we don't wanna scoot the data that much we can
-        just skip the cut and paste until we get close to the end.
-        Need a start_of_window pointer for that.
-
-        Since we're only doing one byte at a time right now:
-        A simple circular buffer and/or a state machine would do the trick too.
-
-        Either way, we could also change this code to process as many bytes as possible instead of just 1.
-
-        It could improve performance and possibly jitter to have fewer system calls.
-        And its often necessary with real hardware:
-        - small buffers in FPGA or hardware UART implementation
-        - bursty data
-        - lack of DMA FIFOs
-
-        But I'd have to set up the UART differently with the VTIME business cause its only 1 byte right now.
-        And until I know how many samples this thing is actually going to be sending out in real life, its easier to wait.
-        
-        */
 }
 
 int main_initial_uart_test_version(int argc, char** argv)
@@ -253,3 +289,34 @@ int main_initial_uart_test_version(int argc, char** argv)
     close(fd);
     return 0;
 }
+
+/*
+        Visualizing the above and possible optimizations:
+                
+        Buffer is a scrolling strip of tape:
+        You read in bytes on the right.
+
+        Right now, I  scan from the left for a 4-byte sync window.
+        When we parse a packet, we cut it out, and slide the remaining tape left.
+
+        Optimizations:
+
+        only shift data left when we run out of room, not every time
+        (i.e. skip the cut and paste until we get close to the end.)
+        Need a start_of_window pointer for that.
+
+        Since we're only doing one byte at a time right now:
+        A simple circular buffer and/or a state machine would do the trick too.
+
+        Either way, we could also change this code to process as many bytes as possible instead of just 1.
+
+        Doing that could improve performance and possibly jitter to have fewer system calls.
+        Also its often necessary with real hardware because:
+        - small buffers in FPGA or hardware UART implementation
+        - bursty data and/or lots of data at once
+        - lack of DMA FIFOs
+
+        I'd have to set up the UART differently with the VTIME business cause its only 1 byte right now.
+        Until I know how many samples this thing is actually going to be sending out in real life, its easier to wait.
+        
+*/
