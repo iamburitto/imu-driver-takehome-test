@@ -49,17 +49,13 @@ I'd probably want to add 8-byte double versions of all 4 wrapper functions in th
 3. Write a C++ Linux program designed to execute in a resource constrained, multi-threaded 
 environment that will execute the IMU parsing code every `80ms` and broadcast the parsed results on the localhost network.
 
-Maybe you folks just wanted one thread to be triggered every 80ms, read and process as many IMU packets as possible, and die after a certain amount of time - I'm not sure.
+- “execute the IMU parsing code every 80ms and broadcast the parsed results on the localhost network.”
+- Does that mean “parse and broadcast as many packets as possible once every 80ms”, or "parse all packets but drop most on the floor for now and only broadcast the latest packet every 80ms"?
+- Do we want one thread triggered every 80ms to read and process and forward all the packets?
+- Or multiple threads - one to parse packets in the background and one to broadcast?
+- Do you want them all broadcasted, or only the latest?
 
-“execute the IMU parsing code every 80ms and broadcast the parsed results on the localhost network.”
-
-Does that mean “parse and broadcast as many packets as possible once every 80ms”, or "parse all packets but drop most on the floor for now and only broadcast the latest packet every 80ms"?
-
-Do we want one thread triggered every 80ms to process and forward all the packets?
-
-Or multiple threads - one to parse packets in the background and one to broadcast?
-
-I wasn't sure. Probably the former, but I decided to assume the latter and do two threads for fun - could always combine them into one 80ms thread instead:
+I wasn't sure. I decided to assume the latter and do two threads for fun - could always combine them into one 80ms thread instead, so here's what I made:
 
 - "producer" == Thread A (UART parser running in background thread): parses packets as fast as bytes arrive but only stores the most recent one in a global struct (shared memory with thread B)
 
