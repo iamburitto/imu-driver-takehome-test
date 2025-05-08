@@ -33,17 +33,6 @@ constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
 
 int configure_uart(const char* device);
 
-int main(int argc, char** argv)
-{
-    // Configure UART
-
-    // Start UART parser thread
-
-    // Start 80ms broadcaster thread
-
-    // Join both threads at the end (to keep the program running)
-}
-
 void uart_reader_loop(int fd)
 {
     // The uart reading/parsing loop we put in main v2 goes here
@@ -66,6 +55,25 @@ void broadcaster_loop(int fd)
         // 4. unlock mutex
         // 5. print it to console (later on send it to localhost)
     }
+}
+
+int main(int argc, char** argv)
+{
+    const char* port = (argc > 1) ? argv[1] : "/dev/tty1"; // pass in /dev/pts/X for testing
+    int fd = configure_uart(port);
+    if (fd < 0) return 1;
+
+    // Start UART parser thread
+    std::thread reader(uart_reader_loop, fd);
+
+    // Start 80ms broadcaster thread
+    std::thread broadcaster(broadcaster_loop);
+
+    // Join both threads at the end (to keep the program running)
+    reader.join();
+    broadcaster.join();
+
+    return 0;
 }
 
 int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
@@ -251,6 +259,7 @@ int configure_uart(const char* device)
 {
     // Open the serial port for read/write, no controlling terminal, synchronous writes
     // TODO: read man termios to actually understand these options that I got from stackoverflow
+    printf("Opening serial port: %s\n", device);
     int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
     if (fd < 0)
     {
