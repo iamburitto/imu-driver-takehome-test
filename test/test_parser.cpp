@@ -28,7 +28,7 @@ TEST_CASE("Invalid IMU packet fails")
     float32_t y = 20.0f;
     float32_t z = 40.0f;
 
-    ImuPacket pkt;
+    imu_packet_t pkt;
 
     SECTION("NULL buffer")
     {
@@ -94,7 +94,7 @@ TEST_CASE("Valid IMU packet parses correctly")
     memcpy(&buffer[12], &y_be, sizeof(float32_t));
     memcpy(&buffer[16], &z_be, sizeof(float32_t));
 
-    ImuPacket pkt;
+    imu_packet_t pkt;
 
     REQUIRE(parse_imu_packet(buffer, sizeof(buffer), pkt));
     REQUIRE(pkt.packet_count == packet_count);

@@ -14,7 +14,7 @@
  * @param out Reference to store parsed result.
  * @return true if successfully parsed; false if invalid or too short.
  */
-bool parse_imu_packet(const uint8_t* buffer, size_t len, ImuPacket& out)
+bool parse_imu_packet(const uint8_t* buffer, size_t len, imu_packet_t& out)
 {
     // Return false if buffer is NULL
     if (buffer == NULL)

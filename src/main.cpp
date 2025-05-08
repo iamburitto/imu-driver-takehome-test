@@ -23,32 +23,22 @@
 #include "uart.hpp"
 #include "imu_parser.hpp" // includes my fendian.hpp to deal with endianness for floats
 
-// global shared packet + mutex
-ImuPacket latest_packet;
-std::mutex latest_mutex;
+// global shared packet + mutex (do these need to be volatile?)
+imu_packet_t g_latest_packet;
+std::mutex g_latest_mutex;
 
 // IMU packet parsing constants
 constexpr size_t UART_BUFFER_CAPACITY = 1024; // TODO: calculate how big it actually needs to be at this baud rate for 20 byte packets and running every 80ms
 constexpr size_t PACKET_SIZE  = 20;
 constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
 
-void uart_reader_loop(int fd) // scroll to the end of this file for a list of possible optimizations
+void uart_reader_thread(int fd) // scroll to the end of this file for a list of possible optimizations
 {
-    // The uart reading/parsing loop we put in main v2 goes here
-
     /*
-        1. Reads raw bytes from the UART port
-        2. Buffers them
-        3. Scans for the 0x7F F0 1C AF sync header (sliding window)
-        4. Extracts a full 20-byte packet
-        5. Passes it to parse_imu_packet()
-        6. Prints the result to stdout
-
-        Example output: 
-
-        [UART] Found sync header at offset 12
-        [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
-
+        1. Buffers raw bytes from the UART port 1 at a time (shifts left to drop oldest byte if full)
+        2. Scans for the 0x7F F0 1C AF sync header (sliding 20 byte window)
+        3. Calls parse_imu_packet() to extract packet fields to imu_packet_t struct
+        4. On successful extraction: lock mutex, update g_latest_packet, unlock mutex
     */
 
     uint8_t buffer[UART_BUFFER_CAPACITY];
@@ -79,17 +69,17 @@ void uart_reader_loop(int fd) // scroll to the end of this file for a list of po
             // Check if 4 bytes starting at that position match the sync header (0x7F F0 1C AF)
             if( memcmp(&buffer[i], SYNC_BYTES, 4) == 0)
             {
-                ImuPacket pkt;
+                imu_packet_t pkt;
                 if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
                 {
-                    latest_mutex.lock();
+                    g_latest_mutex.lock();
+                    g_latest_packet = pkt; // shallow copy is ok here
 
-                    latest_packet = pkt; // shallow copy is ok here
                     printf("[UART] Found sync header at offset %zd\n", i);
                     printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
                         pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
 
-                    latest_mutex.unlock();
+                    g_latest_mutex.unlock();
 
                     // Remove all bytes up through the end of that packet
                     size_t remaining = buffer_size_nbytes - (i + PACKET_SIZE);
@@ -107,17 +97,19 @@ void uart_reader_loop(int fd) // scroll to the end of this file for a list of po
     } 
 }
 
-void broadcaster_loop()
+void broadcaster_80ms_thread()
 {
     while(true)
     {
-        // 1. sleep for 80ms
         std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
-        // 2. lock mutex
-        // 3. copy latest IMU packet
-        // 4. unlock mutex
-        // 5. print it to console (later on send it to localhost)
+        g_latest_mutex.lock();
+        imu_packet_t pkt = g_latest_packet; // shallow copy ok here
+        g_latest_mutex.unlock();
+
+        // send this to localhost later
+        printf("[BROADCAST] Packet #%u: X=%.2f Y=%.2f Z=%.2f\n",
+            pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
     }
 }
 
@@ -127,15 +119,11 @@ int main(int argc, char** argv)
     int fd = configure_uart(port);
     if (fd < 0) return 1;
 
-    // I'd really rather use pthreads directly, might make a new version after this. More control over time.
+    // Might be better to use pthreads directly for real flight code (more common/more control over time) - might make a new version after this.
 
-    // Start UART parser thread
-    std::thread reader(uart_reader_loop, fd);
+    std::thread reader(uart_reader_thread, fd);
+    std::thread broadcaster(broadcaster_80ms_thread);
 
-    // Start 80ms broadcaster thread
-    std::thread broadcaster(broadcaster_loop);
-
-    // Join both threads at the end (to keep the program running)
     reader.join();
     broadcaster.join();
 
@@ -220,7 +208,7 @@ int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
             if( memcmp(&buffer[i], SYNC_BYTES, 4) == 0)
             {
                 // Call parse_imu_packet() on 20-byte window starting there
-                ImuPacket pkt;
+                imu_packet_t pkt;
                 
                 if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
                 {

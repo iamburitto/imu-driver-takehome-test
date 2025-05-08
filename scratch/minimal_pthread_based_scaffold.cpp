@@ -11,10 +11,10 @@ typedef struct {
     float x_rate_rdps;
     float y_rate_rdps;
     float z_rate_rdps;
-} ImuPacket;
+} imu_packet_t;
 
 // Shared state
-ImuPacket latest_packet;
+imu_packet_t latest_packet;
 pthread_mutex_t latest_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // UART parsing thread
@@ -42,7 +42,7 @@ void* broadcaster_loop(void* arg) {
         nanosleep(&interval, NULL);
 
         pthread_mutex_lock(&latest_mutex);
-        ImuPacket pkt = latest_packet; // shallow copy
+        imu_packet_t pkt = latest_packet; // shallow copy
         pthread_mutex_unlock(&latest_mutex);
 
         printf("[BROADCAST] Packet #%u: X=%.2f Y=%.2f Z=%.2f\n",

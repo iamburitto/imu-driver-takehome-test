@@ -4,10 +4,10 @@
 #include <cstdio>
 
 // Shared data
-ImuPacket latest_packet;
-std::mutex latest_mutex;
+ImuPacket g_latest_packet;
+std::mutex g_latest_mutex;
 
-void uart_reader_loop(int fd) {
+void uart_reader_thread(int fd) {
     // LOOP:
     //   read 1 byte at a time from fd
     //   append to buffer
