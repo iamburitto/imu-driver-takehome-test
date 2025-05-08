@@ -1,6 +1,8 @@
 #ifndef FENDIAN_H
 #define FENDIAN_H
 
+// This is Britt Christy's creation.
+
 #include <cstdint>  // defines standard integer types like uint32_t
 #include <cstring>  // for memcpy
 #include <endian.h> // defines htobe32() and be32toh()

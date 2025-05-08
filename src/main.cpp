@@ -36,6 +36,28 @@ constexpr size_t UART_BUFFER_CAPACITY = 1024; // TODO: calculate how big it actu
 constexpr size_t PACKET_SIZE  = 20;
 constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
 
+/*
+    Right now this main() is a simple single-threaded loop that:
+
+    1. Reads raw bytes from the UART port
+    2. Buffers them
+    3. Scans for the 0x7F F0 1C AF sync header
+    4. Extracts a full 20-byte packet
+    5. Passes it to parse_imu_packet()
+    6. Prints the result to stdout
+
+    Example output: 
+
+    [UART] Found sync header at offset 12
+    [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
+    
+    Next:
+
+    1. Make loop run every 80ms to get raw data sent by python program
+    2. Broadcast the data to localhost read by python program to verify data matches
+    3. Probably needs to read chunks of data later, not just 1 byte at a time
+*/
+
 int main(int argc, char** argv)
 {
     // read serial port path from command-line args (default to /dev/tty1, replace with /dev/pts/X for testing)
@@ -50,36 +72,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    /*
-        Goal for tonight: Implement a simple single-threaded loop that:
-
-        1. Reads raw bytes from the UART port
-        2. Buffers them
-        3. Scans for the 0x7F F0 1C AF sync header
-        4. Extracts a full 20-byte packet
-        5. Passes it to parse_imu_packet()
-        6. Prints the result to stdout
-
-        Example output: 
-
-        [UART] Found sync header at offset 12
-        [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
-        
-        Next:
-
-        1. Make loop run every 80ms to get raw data sent by python program
-        2. Broadcast the data to localhost read by python program to verify data matches
-        3. Probably needs to read chunks of data later, not just 1 byte at a time
-    */
-
     // Create a read buffer
     uint8_t buffer[UART_BUFFER_CAPACITY];
 
     // create a small sliding window for sync detection
     size_t buffer_size_nbytes = 0; // buffer size is the current number of bytes in the buffer
 
-    // honestly if I'm going to do this weird single byte shifting I might as well be using a circular buffer, the logic would be easier
-    while (true)
+    // honestly if I'm going to do 1 byte at a time I should probably be using a circular buffer, the logic would be easier.
+    // oh well.
+
+    while (true) // scroll to the bottom to see a comment with possible optimizations
     {
         // get a byte (can optimize by reading multiple bytes later)
         uint8_t byte;
@@ -88,10 +90,11 @@ int main(int argc, char** argv)
         // if the buffer is full
         if(buffer_size_nbytes >= UART_BUFFER_CAPACITY)
         {
-            // shift all the data left by 1 to make space
+            // shift all the data left by 1 to drop the oldest byte and make space
+            // TODO: print some kind of debug info here so we know we're dropping one?
             memmove(&buffer[0], &buffer[1], UART_BUFFER_CAPACITY - 1);
 
-            // update buffer size
+            // update buffer size to make room
             buffer_size_nbytes = UART_BUFFER_CAPACITY - 1;
         }
 
@@ -101,31 +104,18 @@ int main(int argc, char** argv)
         // increment buffer_size
         buffer_size_nbytes++;
 
-        /*
-            Scan for sync header until there's not enough bytes for a full packet
-            
-            Visualizing it:
-            Buffer is a scrolling strip of tape:
-            You read in bytes on the right.
+        // NOTE: This whole thing would be a lot easier for me to read personally if I put it in a state machine,
+        // but the goal right now is functionality not prettiness, and some folks don't like state machines as much as I do.
 
-            Right now, I  scan from the left for a 4-byte sync window.
-            When we parse a packet, we cut it out, and slide the remaining tape left.
-
-            If we don't wanna scoot the data that much we can
-            just skip the cut and paste until we get close to the end. That's an optimization.
-        
-        */
-
-        // This whole thing would be a lot sexier if I put it in a state machine, but the goal right now is functionality not prettiness
+        // Slide 20 byte window right to scan for SYNC 
         for (size_t i = 0; i + PACKET_SIZE <= buffer_size_nbytes; ++i)
         {
             // Check if 4 bytes starting at that position match the sync header (0x7F F0 1C AF)
             if( memcmp(&buffer[i], SYNC_BYTES, 4) == 0)
             {
                 // Call parse_imu_packet() on 20-byte window starting there
-
-                // TODO: I think I gotta check and see if there's actually room left for 20 bytes since we don't wrap right now
                 ImuPacket pkt;
+                
                 if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
                 {
                     printf("[UART] Found sync header at offset %zd\n", i);
@@ -135,7 +125,7 @@ int main(int argc, char** argv)
                     // Remove all bytes up through the end of that packet
                     size_t remaining = buffer_size_nbytes - (i + PACKET_SIZE);
 
-                    // shift buffer left (later we can optimize to only shift when 20 byte window hits the end)
+                    // shift buffer left to get rid of the packet (later we can optimize to only shift when 20 byte window hits the end)
                     memmove(&buffer[0], &buffer[i + PACKET_SIZE], remaining);
 
                     // update buffer length
@@ -146,6 +136,37 @@ int main(int argc, char** argv)
             }
         }
     } 
+
+    /*
+        Visualizing the above and possible optimizations:
+                
+        Buffer is a scrolling strip of tape:
+        You read in bytes on the right.
+
+        Right now, I  scan from the left for a 4-byte sync window.
+        When we parse a packet, we cut it out, and slide the remaining tape left.
+
+        Optimizations:
+
+        If we don't wanna scoot the data that much we can
+        just skip the cut and paste until we get close to the end.
+        Need a start_of_window pointer for that.
+
+        Since we're only doing one byte at a time right now:
+        A simple circular buffer and/or a state machine would do the trick too.
+
+        Either way, we could also change this code to process as many bytes as possible instead of just 1.
+
+        It could improve performance and possibly jitter to have fewer system calls.
+        And its often necessary with real hardware:
+        - small buffers in FPGA or hardware UART implementation
+        - bursty data
+        - lack of DMA FIFOs
+
+        But I'd have to set up the UART differently with the VTIME business cause its only 1 byte right now.
+        And until I know how many samples this thing is actually going to be sending out in real life, its easier to wait.
+        
+        */
 }
 
 int main_initial_test_version(int argc, char** argv) {
