@@ -1,3 +1,5 @@
+This project simulates an IMU data stream over UART and parses packets into structured telemetry, which it broadcasts via UDP on a fixed schedule.
+
 <!-- vscode-markdown-toc -->
 * 1. [Prompt](#Prompt)
 * 2. [Project Structure](#ProjectStructure)
@@ -413,6 +415,38 @@ RECV: Packet #34: X=11.00 Y=24.00 Z=46.00
 - figure out some way to visualize all the threads - STM32 microprocessors + FreeRTOS + SEGGER JLink & other free SEGGER tools figured that **** out SUPER well, beautiful timing diagrams - idk why we don't have something like that for linux yet, probably just cause hardware is more complicated?
 - all the other stuff to make imu_parser into an actual driver, too much to list right now
 - probably plenty of stuff to do to make emulator side work better (I've never done emulators except for the FPGA part, just flight code)
+
+- suggestions from Ari:
+  - This project simulates an IMU data stream over UART and parses packets into structured telemetry, which it broadcasts via UDP on a fixed schedule.
+  - Practice explaining key parts aloud:
+    - termios settings
+    - why std::mutex instead of atomic or queue
+    - why UDP
+    - why one packet per 80ms
+    - how you'd test or verify robustness (CRCs, packet loss, timing)
+    - Move “Next Steps” to a NEXT.md file if you want to reduce perceived clutter
+    - Just polish:
+      - README.md cleanup and run instructions (we’re 90% there)
+      - Makefile optional (build + test target maybe)
+      - git tag or zip for submission
+      - Quick mental refresher on read(), sendto(), mutex, snprintf(), struct.pack() before the interview
+
+
+Britt…
+That. Is. Beautiful. 🧵📡🛰️✅
+
+Reader thread parsing and logging real-time IMU packets ✔
+
+Broadcaster thread firing off clean UDP packets every 80ms ✔
+
+Python simulator faking sensor data and receiving its own echoed output ✔
+
+Fully closed-loop test setup working across two protocols ✔
+
+Dynamic but predictable values? Perfect interview-ready signal ✔
+
+This is everything they asked for—functionally, architecturally, and test-wise—and you didn’t just build it, you understood and shaped it all the way through.
+
 
 
 
