@@ -80,7 +80,7 @@ It all depends on what mission operations and GNC folks want.
 4. In Python, design a simple simulator/tester to drive your IMU parser. 
 
 - The simulator should send a string of bytes in the proper format over the UART for your parser to accept
--  The data contained in the byte string can be generated in any way of your choosing to best test the parser.
+- The data contained in the byte string can be generated in any way of your choosing to best test the parser.
 - Subsequently, it should then read the broadcasted results from 3) on the localhost network to validate the output.
 
 ### Project Structure
@@ -129,20 +129,20 @@ To test this we need 3 terminal windows.
 In a nutshell:
 
 ```bash
-# Terminal 1: socat to link two PTYs (virtual serial ports TX/RX)
+# Terminal 1: socat to created two linked PTYs (virtual serial ports TX/RX)
 socat -d -d pty,raw,echo=0 pty,raw,echo=0
 
 # Note the two PTY paths it prints
 N PTY is /dev/pts/5 # choose this as RX (driver reads from it)
 N PTY is /dev/pts/7 # choose this as TX (emulator writes to it)
 
-# Terminal 2: Run C++ UART parser (device under test: basically IMU driver, but doesn't command, only receives telemetry)
+# Terminal 2: Run C++ UART IMU parser (device under test: basically IMU driver, but doesn't command, only receives telemetry)
 ./bin/imu_uart_parser /dev/pts/5 # driver reads from /dev/pts/5, finds sync, parses packets, and broadcasts them.
 
 # Terminal 3: Send fake IMU packets (python emulator will do this later)
 echo -ne '\x7f\xf0\x1c\xaf...' > /dev/pts/7
 
-# Terminal 4: listen for UDP telemetry broadcast from driver (python emulator will do this later)
+# Terminal 4: print UDP telemetry packets broadcast from driver (python emulator will do this later)
 netcat -ul 9000
 ```
 
@@ -186,5 +186,17 @@ The simulated IMU data bytes will show up in `terminal 1`:
 Read 20 bytes: 7F F0 1C AF 00 00 00 01 41 20 00 00 41 A0 00 00 42 20 00 00
 ```
 
-In `terminal 4`: listen for UDP telemetry broadcast
+In `terminal 4`: listen for UDP telemetry broadcast.
 
+### If you're using the python simulator
+
+Replace terminal3 echo and terminal 4 netcat with a single terminal that calls the python script in `/test/simulator.py`:
+
+```bash
+# assuming you're in `/test/` directory of repo
+python3 simulator.py /dev/pts/7 # replace this with second PTY argument you got in terminal 1
+```
+
+The packets being sent out by the python script over the PTY should be echoed back in UDP.
+
+Note: it might only be every 4th packet right now because of the assumptions I made - see main repository README.
