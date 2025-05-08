@@ -199,6 +199,7 @@ int main_initial_test_version(int argc, char** argv) {
     return 0;
 }
 
+// TODO: put this in uart.hpp/uart.cpp instead
 int configure_uart(const char* device)
 {
     // Open the serial port for read/write, no controlling terminal, synchronous writes
