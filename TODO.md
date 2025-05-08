@@ -37,8 +37,8 @@
 ---
 
 ### ⏲️ Phase 4: Timed Execution & UDP Broadcast (~2–2.5 hrs)
-- [ ] Make main.c that compiles with 2 thread function stubs (1 parser, 1 broadcaster)
-- [ ] Launch thread that executes every 80ms
+- [x] Make main.c that compiles with 2 thread function stubs (1 parser, 1 broadcaster)
+- [x] Launch thread that executes every 80ms
 - [ ] Share latest parsed packet in thread-safe manner (with `std::mutex`)
     - Actually, does it need to be the latest one? Or should we just be getting all of them?
 - [ ] Format parsed data into a simple UDP payload

@@ -43,7 +43,7 @@ void uart_reader_loop(int fd)
         // 3. unlock the mutex
 }
 
-void broadcaster_loop(int fd)
+void broadcaster_loop()
 {
     while(true)
     {
