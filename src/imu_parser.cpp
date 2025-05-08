@@ -34,11 +34,11 @@ bool parse_imu_packet(const uint8_t* buffer, size_t len, imu_packet_t& out)
         return false;
     }
 
-    printf("buffer[0]: %02X ", buffer[0]);
-    printf("buffer[1]: %02X ", buffer[1]);
-    printf("buffer[2]: %02X ", buffer[2]);
-    printf("buffer[3]: %02X ", buffer[3]);
-    printf("\n");
+    // printf("buffer[0]: %02X ", buffer[0]);
+    // printf("buffer[1]: %02X ", buffer[1]);
+    // printf("buffer[2]: %02X ", buffer[2]);
+    // printf("buffer[3]: %02X ", buffer[3]);
+    // printf("\n");
 
     // TODO: Define offsets instead of magic numbers
 
