@@ -5,7 +5,6 @@
 #include <cstdio>
 #include "fendian.hpp"
 
-// TODO: do I need to pack this? probably not since they're all the same data size.
 typedef struct
 {
     uint32_t packet_count;

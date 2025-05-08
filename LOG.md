@@ -144,3 +144,10 @@ Assumptions:
 - Its still possible that's not what they intended, but gonna go for it anyway cause I'm rusty with threading and it'll be fun
 - Thread A (UART parser running in background thread): runs as fast as bytes arrive, updates the latest good packet
 - Thread B (triggered every 80ms by scheduler): wakes up, grabs the latest parsed packet (shared memory with thread A and protected with mutexes), and broadcasts that to localhost
+- Got the two threads implemented and compiling at the library, now heading to the gym to climb between code
+- Opening UDP socket, gym open for one more hour
+- considered making cntrl-c work ok for sockets but its gonna take too long tonight, so here's what to look at while testing:
+  - check for open file descriptors: `lsof -p <pid>`
+  - check for max number of file descriptors per process: `ulimit -n`
+  - watch for "too many open files" errors (leaking sockets), probs not important for this test
+- 

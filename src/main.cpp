@@ -106,6 +106,27 @@ void uart_reader_thread(int fd) // scroll to the end of this file for a list of 
 
 void broadcaster_80ms_thread()
 {
+    // open a UDP socket
+    int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock_fd < 0)
+    {
+        perror("Failed to open socket");
+        return;
+    }
+
+    // open up a UDP socket
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
+        return;
+    }
+    
+    // set up socket destination address (broadcast to localhost, python script emulator/tester will be reading it)
+    sockaddr_in dest_address{};
+    dest_address.sin_family = AF_INET;
+    dest_address.sin_port = htons(9000); // destination port
+    dest_address.sin_addr.s_addr = inet_addr("127.0.0.1"); // destination IP address (localhost)
+
     while(true)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(80));
@@ -117,6 +138,16 @@ void broadcaster_80ms_thread()
         // send this to localhost later
         printf("[BROADCAST] Packet #%u: X=%.2f Y=%.2f Z=%.2f\n",
             pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
+        
+        // Format packet into a text buffer (later: maybe binary - definitely binary if this was being used to send out commands to a real emulator, or something actually on the spacecraft and not just a python script on the ground
+        char buffer[128];
+        snprintf(buffer, sizeof(buffer),
+            "Packet #%u: X=%.2f Y=%.2f Z=%.2f",
+            pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
+
+        // Send to localhost:9000
+        sendto(sock, buffer, strlen(buffer), 0,
+           (struct sockaddr*)&dest_addr, sizeof(dest_addr));
     }
 }
 

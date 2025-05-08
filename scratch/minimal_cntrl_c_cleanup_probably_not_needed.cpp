@@ -36,6 +36,7 @@ close(sock);  // inside your broadcaster thread or at end of main if passed back
     
     Prevent resource leakage in select(), poll(), etc
     I might fill up file descriptors over time
+    Multisocket systems	Can run out of port bindings or ephemeral ports
     
     to check that:
         - check for open file descriptors: `lsof -p <pid>`
