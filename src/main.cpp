@@ -129,6 +129,7 @@ void broadcaster_80ms_thread()
 
     while(true)
     {
+        // I honestly really want to switch to using regular non-c++ pthreads for actual flight code, cause this isn't enough control over the time I don't think and I hate all these namespaces ::
         std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
         g_latest_mutex.lock(); // std::lock_guard<std::mutex> lock(g_latest_mutex); guards against early returns/exceptions and unlocks automagically says the internet
