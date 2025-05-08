@@ -160,4 +160,9 @@ sudo apt install python3-venv
 ```
 - I'd go watch [this video](https://www.youtube.com/watch?v=dC1A8t-G3tw) if I wanted to get venv with python2/3 working well together
 
+## 5/8/2025 5:34AM
+
+- IT WORKS see end of README for details and test output, I'll include a video too, hotdamn 🥳💃🎊😅😴
+
+
 

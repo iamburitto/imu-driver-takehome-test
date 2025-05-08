@@ -57,12 +57,12 @@ print(f"Sending IMU packets to {args.serial_port}, listening for UDP on localhos
 count = 1 # originally I didn't know if this was the packet payload length or just an incrementing id to differentiate packets, assuming the latter
 while True:
     pkt = make_packet(count, 10.0 + count % 3, 20.0 + count % 5, 40.0 + count % 7)
-    ser.write(pkt)
+    ser.write(pkt) # terminal: echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x20\x00\x00' > /dev/pts/7
     count += 1 # ok if wraps
 
     try:
         data, _ = udp_sock.recvfrom(1024)
-        print("RECV:", data.decode('utf-8'))
+        print("RECV:", data.decode('utf-8')) # terminal: netcat -ul 9000
     except socket.timeout:
         pass
     

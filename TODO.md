@@ -47,27 +47,22 @@
 
 ---
 
-### 🧪 Phase 5: Python Simulator (~1.5–2 hrs)
-- [ ] Generate 20-byte IMU packets with struct.pack()
-- [ ] Send packet over serial (using `pyserial`) every 20ms
-- [ ] Listen on UDP for the broadcast from the C++ parser
-- [ ] Decode UDP payload and print or validate results
-- [ ] Use `socat` to create virtual port pair for testing (looped to C++ side)
+###  Phase 5: Python Simulator (~1.5–2 hrs)
+- [x] Generate 20-byte IMU packets with struct.pack()
+- [x] Send packet over serial (using `pyserial`) every 20ms
+- [x] Listen on UDP for the broadcast from the C++ parser
+- [x] Decode UDP payload and print or validate results
+- [x] Use `socat` to create virtual port pair for testing (looped to C++ side)
 
 ---
 
-### 🧼 Phase 6: Polish & Submission (~1 hr)
+### Phase 6: Polish & Submission (~1 hr)
 - [x] Change telemetry names to include 'rdps' units since that's what the prompt asks for
-- [ ] Write usage instructions in `README.md`
-- [ ] Add example `socat` and simulator commands
-- [ ] Final code comment review and formatting
-- [ ] Run end-to-end test (socat + simulator + parser + UDP)
-- [ ] Tag final commit, zip if needed, submit
-
----
-
-### 🎯 Remember when you're trying to make things too complicated:
-- Focus on UART → parser → UDP as your “critical path”
-- Simulator can be light—just needs to show understanding
+- [x] Write usage instructions in `README.md`
+- [X] Write next steps in `README.md`
+- [x] Add example commands
+- [x] Final code comment review and formatting
+- [x] Run end-to-end test (socat + simulator + parser + UDP)
+- [x] Tag final commit, zip if needed, add a video/screenshot maybe, submit
 
 ---

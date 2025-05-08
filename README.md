@@ -1,4 +1,4 @@
-# IMU UART Parser - Takehome Assignment
+# IMU UART Parser and IMU simulator - Takehome Assignment
 
 ## Prompt
 
@@ -83,14 +83,16 @@ It all depends on what mission operations and GNC folks want.
 - The data contained in the byte string can be generated in any way of your choosing to best test the parser.
 - Subsequently, it should then read the broadcasted results from 3) on the localhost network to validate the output.
 
-### Project Structure
+## Project Structure
 
 - `src/` → C++ source code
 - `include/` → C++ headers
-- `test/` → catch2 unit tests, future test scripts (e.g. Python simulator)
-- `build/` → CMake build output (gitignored)
+- `test/` → catch2 unit tests (`imu_simulator.py`) and `imu_simulator.py`
+- `build/` → CMake build output (gitignored), the `bin` directory has the `unit_tests` and `imu_parser` executables
 
-### How to build
+## How to build
+
+Everything:
 
 ```bash
 mkdir -p build
@@ -99,7 +101,7 @@ cmake ..
 make
 ```
 
-### How to build and run just unit tests
+Just unit tests:
 
 ```bash
 cd build
@@ -111,7 +113,7 @@ Randomness seeded to: 1089831589
 All tests passed (1 assertion in 1 test case)
 ```
 
-### How to test `imu_uart_parser` using `socat` to create two linked virtual serial ports
+## How to test `imu_parser` using `socat` to create two linked virtual serial ports
 
 A `pty` is a `pseudoterminal` (fake serial port) when we don't have access to an actual hardware terminal serial port (`tty`).
 
@@ -126,7 +128,7 @@ Anything written to one side will show up on the other side.
 
 To test this we need 3 terminal windows.
 
-In a nutshell:
+### In a nutshell:
 
 ```bash
 # Terminal 1: socat to created two linked PTYs (virtual serial ports TX/RX)
@@ -139,14 +141,14 @@ N PTY is /dev/pts/7 # choose this as TX (emulator writes to it)
 # Terminal 2: Run C++ UART IMU parser (device under test: basically IMU driver, but doesn't command, only receives telemetry)
 ./bin/imu_uart_parser /dev/pts/5 # driver reads from /dev/pts/5, finds sync, parses packets, and broadcasts them.
 
-# Terminal 3: Send fake IMU packets (python emulator will do this later)
-echo -ne '\x7f\xf0\x1c\xaf...' > /dev/pts/7
+# Terminal 3: Send fake IMU packets (will be imu_simulator.py UART output)
+echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x20\x00\x00' > /dev/pts/7
 
-# Terminal 4: print UDP telemetry packets broadcast from driver (python emulator will do this later)
+# Terminal 4: print UDP telemetry packets broadcast from driver (will be python_simulator.py UDP input)
 netcat -ul 9000
 ```
 
-In more detail:
+### In more detail:
 
 In `terminal 1`: create two linked virtual serial ports:
 
@@ -186,17 +188,204 @@ The simulated IMU data bytes will show up in `terminal 1`:
 Read 20 bytes: 7F F0 1C AF 00 00 00 01 41 20 00 00 41 A0 00 00 42 20 00 00
 ```
 
-In `terminal 4`: listen for UDP telemetry broadcast.
+## How to test with python simulator (final product yo)
 
-### If you're using the python simulator
-
-Replace terminal3 echo and terminal 4 netcat with a single terminal that calls the python script in `/test/simulator.py`:
+Replace terminal 3 echo and terminal 4 netcat with a single terminal that calls the python script in `/test/imu_simulator.py`:
 
 ```bash
-# assuming you're in `/test/` directory of repo
-python3 simulator.py /dev/pts/7 # replace this with second PTY argument you got in terminal 1
+# Terminal 1: socat to created two linked PTYs (virtual serial ports TX/RX)
+socat -d -d pty,raw,echo=0 pty,raw,echo=0
+
+# Note the two PTY paths it prints
+N PTY is /dev/pts/5 # choose this as RX (driver reads from it)
+N PTY is /dev/pts/7 # choose this as TX (emulator writes to it)
+
+# Terminal 2: Run C++ UART IMU parser (device under test: basically IMU driver, but doesn't command, only receives telemetry)
+./bin/imu_uart_parser /dev/pts/5 # driver reads from /dev/pts/5, finds sync, parses packets, and broadcasts them.
+
+# Terminal 3: Run python IMU simulator: Sends fake IMU packets over UART, receives UDP with parsed packet strings from localhost:9000 
+
+# assuming you're in `/test/` directory of repo:
+python3 imu_simulator.py /dev/pts/7 # replace this with second PTY argument you got in terminal 1
+
+or:
+
+python3 imu_simulator.py /dev/pts/7 --udp_port 9100 # optional
 ```
+
+### Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)
 
 The packets being sent out by the python script over the PTY should be echoed back in UDP.
 
-Note: it might only be every 4th packet right now because of the assumptions I made - see main repository README.
+Note: right now the simulator has a 20ms period (50Hz) and the simulator has an 80ms period (12.5Hz).
+Technically this baud rate could handle 92160 bytes/second, which div/20 bytes is 4608 IMU packets/second without overhead, but that's probably not happening :P
+
+I need to do the math here to figure out what's reasonable.
+
+But I know none of the packets are missing, because I can visually see it:
+
+You should see output from `imu_parser.cpp` that prints the packets parsed from the binary stream it reads from the serial port from  `imu_simulator.py` and the parsed packet string echos it broadcasts over UDP localhost:9000 back to `imu_simulator.py`:
+
+```bash
+britt@Britt:~/git/true-anomaly-fsw-code-test/build$ ./bin/imu_uart_parser /dev/pts/11
+Opening serial port: /dev/pts/11
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
+[READER][IMU] Packet #1: X=11.00, Y=21.00, Z=41.00 (FIRST PACKET READ FROM UART (from imu_simulator.py) in uart_reader thread)
+[BROADCAST] Packet #1: X=11.00 Y=21.00 Z=41.00 (FIRST PACKET (latest) BROADCAST over UDP (to imu_simulator.py) over localhost:9000 in broadcast_80ms_thread )
+[READER][IMU] Packet #2: X=12.00, Y=22.00, Z=42.00
+[BROADCAST] Packet #2: X=12.00 Y=22.00 Z=42.00
+[READER][IMU] Packet #3: X=10.00, Y=23.00, Z=43.00
+[BROADCAST] Packet #3: X=10.00 Y=23.00 Z=43.00
+[READER][IMU] Packet #4: X=11.00, Y=24.00, Z=44.00
+[BROADCAST] Packet #4: X=11.00 Y=24.00 Z=44.00
+[READER][IMU] Packet #5: X=12.00, Y=20.00, Z=45.00
+[BROADCAST] Packet #5: X=12.00 Y=20.00 Z=45.00
+[READER][IMU] Packet #6: X=10.00, Y=21.00, Z=46.00
+[BROADCAST] Packet #6: X=10.00 Y=21.00 Z=46.00
+[READER][IMU] Packet #7: X=11.00, Y=22.00, Z=40.00
+[BROADCAST] Packet #7: X=11.00 Y=22.00 Z=40.00
+[READER][IMU] Packet #8: X=12.00, Y=23.00, Z=41.00
+[BROADCAST] Packet #8: X=12.00 Y=23.00 Z=41.00
+[READER][IMU] Packet #9: X=10.00, Y=24.00, Z=42.00
+[BROADCAST] Packet #9: X=10.00 Y=24.00 Z=42.00
+[READER][IMU] Packet #10: X=11.00, Y=20.00, Z=43.00
+[BROADCAST] Packet #10: X=11.00 Y=20.00 Z=43.00
+[READER][IMU] Packet #11: X=12.00, Y=21.00, Z=44.00
+[BROADCAST] Packet #11: X=12.00 Y=21.00 Z=44.00
+[READER][IMU] Packet #12: X=10.00, Y=22.00, Z=45.00
+[BROADCAST] Packet #12: X=10.00 Y=22.00 Z=45.00
+[READER][IMU] Packet #13: X=11.00, Y=23.00, Z=46.00
+[BROADCAST] Packet #13: X=11.00 Y=23.00 Z=46.00
+[READER][IMU] Packet #14: X=12.00, Y=24.00, Z=40.00
+[BROADCAST] Packet #14: X=12.00 Y=24.00 Z=40.00
+[READER][IMU] Packet #15: X=10.00, Y=20.00, Z=41.00
+[BROADCAST] Packet #15: X=10.00 Y=20.00 Z=41.00
+[READER][IMU] Packet #16: X=11.00, Y=21.00, Z=42.00
+[BROADCAST] Packet #16: X=11.00 Y=21.00 Z=42.00
+[READER][IMU] Packet #17: X=12.00, Y=22.00, Z=43.00
+[BROADCAST] Packet #17: X=12.00 Y=22.00 Z=43.00
+[READER][IMU] Packet #18: X=10.00, Y=23.00, Z=44.00
+[BROADCAST] Packet #18: X=10.00 Y=23.00 Z=44.00
+[READER][IMU] Packet #19: X=11.00, Y=24.00, Z=45.00
+[BROADCAST] Packet #19: X=11.00 Y=24.00 Z=45.00
+[READER][IMU] Packet #20: X=12.00, Y=20.00, Z=46.00
+[BROADCAST] Packet #20: X=12.00 Y=20.00 Z=46.00
+[READER][IMU] Packet #21: X=10.00, Y=21.00, Z=40.00
+[BROADCAST] Packet #21: X=10.00 Y=21.00 Z=40.00
+[READER][IMU] Packet #22: X=11.00, Y=22.00, Z=41.00
+[BROADCAST] Packet #22: X=11.00 Y=22.00 Z=41.00
+[READER][IMU] Packet #23: X=12.00, Y=23.00, Z=42.00
+[BROADCAST] Packet #23: X=12.00 Y=23.00 Z=42.00
+[READER][IMU] Packet #24: X=10.00, Y=24.00, Z=43.00
+[BROADCAST] Packet #24: X=10.00 Y=24.00 Z=43.00
+[READER][IMU] Packet #25: X=11.00, Y=20.00, Z=44.00
+[BROADCAST] Packet #25: X=11.00 Y=20.00 Z=44.00
+[READER][IMU] Packet #26: X=12.00, Y=21.00, Z=45.00
+[BROADCAST] Packet #26: X=12.00 Y=21.00 Z=45.00
+[READER][IMU] Packet #27: X=10.00, Y=22.00, Z=46.00
+[BROADCAST] Packet #27: X=10.00 Y=22.00 Z=46.00
+[READER][IMU] Packet #28: X=11.00, Y=23.00, Z=40.00
+[BROADCAST] Packet #28: X=11.00 Y=23.00 Z=40.00
+[READER][IMU] Packet #29: X=12.00, Y=24.00, Z=41.00
+[BROADCAST] Packet #29: X=12.00 Y=24.00 Z=41.00
+[READER][IMU] Packet #30: X=10.00, Y=20.00, Z=42.00
+[BROADCAST] Packet #30: X=10.00 Y=20.00 Z=42.00
+[READER][IMU] Packet #31: X=11.00, Y=21.00, Z=43.00
+[BROADCAST] Packet #31: X=11.00 Y=21.00 Z=43.00
+[READER][IMU] Packet #32: X=12.00, Y=22.00, Z=44.00
+[BROADCAST] Packet #32: X=12.00 Y=22.00 Z=44.00
+[READER][IMU] Packet #33: X=10.00, Y=23.00, Z=45.00
+[BROADCAST] Packet #33: X=10.00 Y=23.00 Z=45.00
+[READER][IMU] Packet #34: X=11.00, Y=24.00, Z=46.00
+[BROADCAST] Packet #34: X=11.00 Y=24.00 Z=46.00
+```
+
+And `imu_simulator.py` prints those UDP packet responses it reads out of localhost:9000, so you can see they are 1:1 matching: 
+
+```bash
+britt@Britt:~/git/true-anomaly-fsw-code-test/test$ ./imu_simulator.py /dev/pts/12
+Sending IMU packets to /dev/pts/12, listening for UDP on localhost port 9000...
+RECV: Packet #1: X=11.00 Y=21.00 Z=41.00
+RECV: Packet #2: X=12.00 Y=22.00 Z=42.00
+RECV: Packet #3: X=10.00 Y=23.00 Z=43.00
+RECV: Packet #4: X=11.00 Y=24.00 Z=44.00
+RECV: Packet #5: X=12.00 Y=20.00 Z=45.00
+RECV: Packet #6: X=10.00 Y=21.00 Z=46.00
+RECV: Packet #7: X=11.00 Y=22.00 Z=40.00
+RECV: Packet #8: X=12.00 Y=23.00 Z=41.00
+RECV: Packet #9: X=10.00 Y=24.00 Z=42.00
+RECV: Packet #10: X=11.00 Y=20.00 Z=43.00
+RECV: Packet #11: X=12.00 Y=21.00 Z=44.00
+RECV: Packet #12: X=10.00 Y=22.00 Z=45.00
+RECV: Packet #13: X=11.00 Y=23.00 Z=46.00
+RECV: Packet #14: X=12.00 Y=24.00 Z=40.00
+RECV: Packet #15: X=10.00 Y=20.00 Z=41.00
+RECV: Packet #16: X=11.00 Y=21.00 Z=42.00
+RECV: Packet #17: X=12.00 Y=22.00 Z=43.00
+RECV: Packet #18: X=10.00 Y=23.00 Z=44.00
+RECV: Packet #19: X=11.00 Y=24.00 Z=45.00
+RECV: Packet #20: X=12.00 Y=20.00 Z=46.00
+RECV: Packet #21: X=10.00 Y=21.00 Z=40.00
+RECV: Packet #22: X=11.00 Y=22.00 Z=41.00
+RECV: Packet #23: X=12.00 Y=23.00 Z=42.00
+RECV: Packet #24: X=10.00 Y=24.00 Z=43.00
+RECV: Packet #25: X=11.00 Y=20.00 Z=44.00
+RECV: Packet #26: X=12.00 Y=21.00 Z=45.00
+RECV: Packet #27: X=10.00 Y=22.00 Z=46.00
+RECV: Packet #28: X=11.00 Y=23.00 Z=40.00
+RECV: Packet #29: X=12.00 Y=24.00 Z=41.00
+RECV: Packet #30: X=10.00 Y=20.00 Z=42.00
+RECV: Packet #31: X=11.00 Y=21.00 Z=43.00
+RECV: Packet #32: X=12.00 Y=22.00 Z=44.00
+RECV: Packet #33: X=10.00 Y=23.00 Z=45.00
+RECV: Packet #34: X=11.00 Y=24.00 Z=46.00
+```
+
+## Next steps
+
+- get it running on a ZCU as soon as possible, ideally with the real thing - no way in heck is it gonna work on hardware and petalinux the first time, and that's the fun part (and what I'd prefer to start with if at all possible, though this was fun)
+- programatically verify both sides match in the script (visually they do)
+- figure out the actual math and timing diagram for the threads with baud rate to estimate what the limits are and how big the buffers should be using actual IMU docs
+- Um, is there really not a CRC, or at least some kind of checksum? Radiation and even just regular old packet corruption is a thing...
+- add .gitlab-ci.yml to run unit tests
+- add more unit tests to verify still works in all kinds of weird packet situations
+- add a little tool to print test coverage percentage and missing lines for methods/files (nice to have for later, but also makes stuff take longer because not having full coverage itches your brain)
+- probably plenty of stuff to do to make emulator side work better (I've never done emulators except for the FPGA part, just flight code)
+- clean up C code and remove unnecessary stuff, make it more C-like (I prefer C+/- , I hate seeing all those namespace :: everywhere, but I'd do whatever the team liked best and follow existing standards obviously.)
+- use regular pthreads instead maybe - would give more control over timing, work better with legacy code, lots of other reasons probably, I just wanted to try something new, but not sure if there's dynamic memory allocation in here
+- figure out how to run in RT Linux and actually schedule the threads - we probably need an executor, and a config to tweak them easily
+- figure out some way to visualize all the threads - STM32 microprocessors + FreeRTOS + SEGGER JLink & other free SEGGER tools figured that **** out SUPER well, beautiful timing diagrams - idk why we don't have something like that for linux yet, probably just cause hardware is more complicated?
+- do a deep dive on the UART serial port settings... honestly just get this all working on a ZCU102 with Petalinux
+- all the other stuff to make imu_parser into an actual driver, too much to list right now
+- probably misra-ify it
+
+
