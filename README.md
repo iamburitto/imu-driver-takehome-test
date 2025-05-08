@@ -1,6 +1,21 @@
-# IMU UART Parser and IMU simulator - Takehome Assignment
+<!-- vscode-markdown-toc -->
+* 1. [Prompt](#Prompt)
+* 2. [Project Structure](#ProjectStructure)
+* 3. [How to build](#Howtobuild)
+* 4. [How to test `imu_parser` using `socat` to create two linked virtual serial ports](#Howtotestimu_parserusingsocattocreatetwolinkedvirtualserialports)
+	* 4.1. [In a nutshell:](#Inanutshell:)
+	* 4.2. [In more detail:](#Inmoredetail:)
+* 5. [How to test with python simulator (final product yo)](#Howtotestwithpythonsimulatorfinalproductyo)
+	* 5.1. [Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)](#Results:visuallyverifymatchingoutputfromimu_parserandimu_simulator.pyitworks)
+* 6. [Next steps in no particular order](#Nextstepsinnoparticularorder)
 
-## Prompt
+<!-- vscode-markdown-toc-config
+	numbering=true
+	autoSave=true
+	/vscode-markdown-toc-config -->
+<!-- /vscode-markdown-toc --># IMU UART Parser and IMU simulator - Takehome Assignment
+
+##  1. <a name='Prompt'></a>Prompt
 
 An IMU outputs a byte stream at `921600` baud with a packet definition described below:
 
@@ -83,14 +98,14 @@ It all depends on what mission operations and GNC folks want.
 - The data contained in the byte string can be generated in any way of your choosing to best test the parser.
 - Subsequently, it should then read the broadcasted results from 3) on the localhost network to validate the output.
 
-## Project Structure
+##  2. <a name='ProjectStructure'></a>Project Structure
 
 - `src/` → C++ source code
 - `include/` → C++ headers
 - `test/` → catch2 unit tests (`imu_simulator.py`) and `imu_simulator.py`
 - `build/` → CMake build output (gitignored), the `bin` directory has the `unit_tests` and `imu_parser` executables
 
-## How to build
+##  3. <a name='Howtobuild'></a>How to build
 
 Everything:
 
@@ -113,7 +128,7 @@ Randomness seeded to: 1089831589
 All tests passed (1 assertion in 1 test case)
 ```
 
-## How to test `imu_parser` using `socat` to create two linked virtual serial ports
+##  4. <a name='Howtotestimu_parserusingsocattocreatetwolinkedvirtualserialports'></a>How to test `imu_parser` using `socat` to create two linked virtual serial ports
 
 A `pty` is a `pseudoterminal` (fake serial port) when we don't have access to an actual hardware terminal serial port (`tty`).
 
@@ -128,7 +143,7 @@ Anything written to one side will show up on the other side.
 
 To test this we need 3 terminal windows.
 
-### In a nutshell:
+###  4.1. <a name='Inanutshell:'></a>In a nutshell:
 
 ```bash
 # Terminal 1: socat to created two linked PTYs (virtual serial ports TX/RX)
@@ -148,7 +163,7 @@ echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x
 netcat -ul 9000
 ```
 
-### In more detail:
+###  4.2. <a name='Inmoredetail:'></a>In more detail:
 
 In `terminal 1`: create two linked virtual serial ports:
 
@@ -188,7 +203,7 @@ The simulated IMU data bytes will show up in `terminal 1`:
 Read 20 bytes: 7F F0 1C AF 00 00 00 01 41 20 00 00 41 A0 00 00 42 20 00 00
 ```
 
-## How to test with python simulator (final product yo)
+##  5. <a name='Howtotestwithpythonsimulatorfinalproductyo'></a>How to test with python simulator (final product yo)
 
 Replace terminal 3 echo and terminal 4 netcat with a single terminal that calls the python script in `/test/imu_simulator.py`:
 
@@ -213,7 +228,7 @@ or:
 python3 imu_simulator.py /dev/pts/7 --udp_port 9100 # optional
 ```
 
-### Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)
+###  5.1. <a name='Results:visuallyverifymatchingoutputfromimu_parserandimu_simulator.pyitworks'></a>Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)
 
 The packets being sent out by the python script over the PTY should be echoed back in UDP.
 
@@ -370,7 +385,7 @@ RECV: Packet #33: X=10.00 Y=23.00 Z=45.00
 RECV: Packet #34: X=11.00 Y=24.00 Z=46.00
 ```
 
-## Next steps in no particular order
+##  6. <a name='Nextstepsinnoparticularorder'></a>Next steps in no particular order
 
 - programatically verify both sides match in the simulator script (visually they do)
 - clean and simplify, get rid of extraneous stuff that might confuse people before a real code review
