@@ -49,21 +49,17 @@ I'd probably want to add 8-byte double versions of all 4 wrapper functions in th
 3. Write a C++ Linux program designed to execute in a resource constrained, multi-threaded 
 environment that will execute the IMU parsing code every `80ms` and broadcast the parsed results on the localhost network.
 
-The only other IMU I ever worked with produced like literally 1000 samples a second, and we had to average them on the FPGA even after setting the thing up to do its own internal averaging, and it was a whole thing with GNC since they only ran at 10Hz.
-
-Anyway, for this prompt I am assuming 
-
 Maybe you folks just wanted one thread to be triggered every 80ms, read and process as many IMU packets as possible, and die after a certain amount of time - I'm not sure.
-
-But sometimes its nice to have one task with multiple threads - a consumer thread to parse in the background, and a more time-critical one (controlled more intensely when using Linux RT patch) that must execute at a pa
 
 “execute the IMU parsing code every 80ms and broadcast the parsed results on the localhost network.”
 
-
-
 Does that mean “parse and broadcast as many packets as possible once every 80ms”, or "parse all packets but drop most on the floor for now and only broadcast the latest packet every 80ms"?
 
-I wasn't sure. Probably the former, but I decided to assume the latter and do two threads:
+Do we want one thread triggered every 80ms to process and forward all the packets?
+
+Or multiple threads - one to parse packets in the background and one to broadcast?
+
+I wasn't sure. Probably the former, but I decided to assume the latter and do two threads for fun - could always combine them into one 80ms thread instead:
 
 - "producer" == Thread A (UART parser running in background thread): parses packets as fast as bytes arrive but only stores the most recent one in a global struct (shared memory with thread B)
 
@@ -73,7 +69,7 @@ I wasn't sure. Probably the former, but I decided to assume the latter and do tw
   - "resource-constrained" → no growing queues
   - Realistic embedded stuff (e.g., updating a housekeeping packet on a schedule)
 
-NOTE: This could be configured all sorts of ways depending on the architecture.
+NOTE: This could be done all sorts of ways depending on the architecture. In reality, some threads are time critical and tightly controlled with extra knobs and buttons (CPU, start time, end time, priority, etc etc), and we'd probably want Linux RT.
 
 Other considerations:
 
@@ -81,7 +77,9 @@ If it was a real IMU I'd want to know how many samples per second this IMU produ
 
 The only other IMU I ever worked with produced 1000 samples a second and was too noisy even after configuring the IMU to average its data internally, so we had to average/process it again to get rid of the noise and get it down to 10Hz for GNC's 10Hz flight control model (Nyquist theorem stuff.) There was too much latency to do that in software for the flight computer, so I did it on the SOC's FPGA.
 
-In real life GNC would probably get only the most recent telemetry point when the FCSW model steps, and you'd likely have configurable data rates for all other downlink/storage destinations - high rates for gathering data and debugging, lower data rates for historical telemetry, and all configurable to different rates for different situations.
+GNC would probably get only the most recent telemetry point when the FCSW model steps, and I'd likely have configurable data rates for all other downlink/storage destinations - high rates for gathering data and debugging, lower data rates for historical telemetry, and all configurable to different rates for different situations.
+
+It all depends on what mission operations and GNC folks want.
 
 4. In Python, design a simple simulator/tester to drive your IMU parser. 
 
@@ -135,10 +133,10 @@ To test this we need 3 terminal windows.
 In a nutshell:
 
 ```bash
-# Terminal 1: socat to link two PTYs (driver-to-emulator connection usually)
+# Terminal 1: socat to link two PTYs (virtual serial ports TX/RX)
 socat -d -d pty,raw,echo=0 pty,raw,echo=0
 
-# Note the two PTY paths it prints - these are kinda like your virtual TX/RX UART ports.:
+# Note the two PTY paths it prints
 N PTY is /dev/pts/5 # choose this as RX (driver reads from it)
 N PTY is /dev/pts/7 # choose this as TX (emulator writes to it)
 
@@ -148,7 +146,7 @@ N PTY is /dev/pts/7 # choose this as TX (emulator writes to it)
 # Terminal 3: Send fake IMU packets (python emulator will do this later)
 echo -ne '\x7f\xf0\x1c\xaf...' > /dev/pts/7
 
-# Terminal 4: listen for UDP telemetry broadcast from driver (python emulator will do this later and validate telemetry it sent)
+# Terminal 4: listen for UDP telemetry broadcast from driver (python emulator will do this later)
 netcat -ul 9000
 ```
 
