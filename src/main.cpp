@@ -59,6 +59,8 @@ void broadcaster_loop(int fd)
     while(true)
     {
         // 1. sleep for 80ms
+        std::this_thread::sleep_for(std::chrono::milliseconds(80));
+
         // 2. lock mutex
         // 3. copy latest IMU packet
         // 4. unlock mutex
