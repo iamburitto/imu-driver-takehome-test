@@ -1,5 +1,5 @@
 
-// maybe I don't need these c++ wrapper ones?
+// maybe I don't need some of these c++ wrapper ones
 #include <cstdint> 
 #include <cstring>
 #include <cstdlib>
@@ -14,16 +14,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h> // for fixed-width integer types
-#include <time.h> // for nanosleep()
+#include <time.h> // for nanosleep(), can drop if I don't switch over to regular p_threads
 
 #include <fcntl.h> // for file control operstions like open()
 #include <termios.h>
 #include <errno.h>
 
+/* socket stuff */
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+/* my own headers */
 #include "uart.hpp"
 #include "imu_parser.hpp" // includes my fendian.hpp to deal with endianness for floats
 
-// global shared packet + mutex (do these need to be volatile?)
+// global shared packet + mutex (do these need to be volatile? I don't think so since no ISR or hardware registers)
 imu_packet_t g_latest_packet;
 std::mutex g_latest_mutex;
 
@@ -72,11 +79,11 @@ void uart_reader_thread(int fd) // scroll to the end of this file for a list of 
                 imu_packet_t pkt;
                 if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
                 {
-                    g_latest_mutex.lock();
+                    g_latest_mutex.lock(); // std::lock_guard<std::mutex> lock(g_latest_mutex); guards against early returns/exceptions and unlocks automagically says the internet
                     g_latest_packet = pkt; // shallow copy is ok here
 
-                    printf("[UART] Found sync header at offset %zd\n", i);
-                    printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
+                    printf("[READER][UART] Found sync header at offset %zd\n", i);
+                    printf("[READER][IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
                         pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
 
                     g_latest_mutex.unlock();
@@ -103,7 +110,7 @@ void broadcaster_80ms_thread()
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
-        g_latest_mutex.lock();
+        g_latest_mutex.lock(); // std::lock_guard<std::mutex> lock(g_latest_mutex); guards against early returns/exceptions and unlocks automagically says the internet
         imu_packet_t pkt = g_latest_packet; // shallow copy ok here
         g_latest_mutex.unlock();
 
