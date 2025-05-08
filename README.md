@@ -28,19 +28,49 @@ An IMU outputs a byte stream at `921600` baud with a packet definition described
 
 2. What modifications, if any, would you need to make to the code from 1) if the Linux host was a little endian processor? Describe those modifications.
 
-No.
+No modifications are necessary (if we can assume that the IMU packets themselves really are big-endian.)
 
-If we assume network byte order (big endian) for the IMU itself (sometimes its actually a gross mix between the two), then typically the code has to handle endianness like this:
+It shouldn't matter if the linux host is running on a little endian processor or a big endian processor -  `htobe32()` and `be32toh()` check endianness: they swap bytes if the host is little endian, and do nothing at all if the host is big endian. That makes them portable, though I'm sure there are weird exceptions.
 
-    1. must convert from host byte order to network byte order (big endian) on the sending side (driver)
-    2. must covert from network byte order (big endian) to host byte order on the receiving side (in the IMU emulator, or in the unit tests.)
+It works like this:
 
-It shouldn't matter at all if the linux host is big endian or little endian because I am using `htobe32()` and `be32toh()`, which validate that the host is not already big endian before doing any byte swapping. That's true for both the `uint32_t` packet_count and the three floats, because my `include/fendian.hpp` tool uses `htobe32()` and `be32toh()` to swap endianness in the unions.
+- Packet sender uses `htobe32()` to convert host byte order to network byte order (big endian) for each multi-byte field 
+- Packet receiver uses `be32toh()` to convert network byte order (big endian) to host byte order for each multi-byte field.
 
-However, if the packet protocol itself (the IMU) changed to be little endian, we'd have to change the code to use `htole32()` and `le32toh()` calls to fiddle with its contents, and I'd have to add those to my `fendian.hpp` too.
+Usually its more of a pain in the a** for floats and doubles, and the IMU packet in this case has floats.
+Since we are assuming `IEE-754` floats, I cheat by using unions to pretend the floats are `uint32_t` so I can still use `htobe32()` and `be32toh()` - see my wrapper functions `f_htobe32()` and `f_be32toh()` in `include/fendian.hpp`.
+
+`NOTE`: I've been assuming that the IMU packet protocol itself is all big-endian.
+
+If that wasn't true, and it turns out that the IMU fields can be little-endian or a mix of big-endian and little-endian (gross but common), then we'd have to use `htole32()` and `le32toh()` in addition or instead, and I'd have to add `f_htole32()` and `f_le32toh()` to `fendian.hpp` for the floats.
+
+I'd probably want to add 8-byte double versions of all 4 wrapper functions in the future too (`d_htole32()`, etc.), and extend it as necessary for other weird data types.
 
 3. Write a C++ Linux program designed to execute in a resource constrained, multi-threaded 
 environment that will execute the IMU parsing code every `80ms` and broadcast the parsed results on the localhost network.
+
+The only other IMU I ever worked with produced like literally 1000 samples a second, and we had to average them on the FPGA even after setting the thing up to do its own internal averaging, and it was a whole thing with GNC since they only ran at 10Hz.
+
+Anyway, for this prompt I am assuming 
+
+Maybe you folks just wanted one thread to be triggered every 80ms, read and process as many IMU packets as possible, and die after a certain amount of time - I'm not sure.
+
+But sometimes its nice to have one task with multiple threads - a consumer thread to parse in the background, and a more time-critical one (controlled more intensely when using Linux RT patch) that must execute at a pa
+
+“execute the IMU parsing code every 80ms and broadcast the parsed results on the localhost network.”
+
+Does that mean “store and broadcast everything” not "just broadcast the most up-to-date result?"?
+
+Maybe. But I'm assuming the latter in my code:
+
+- Thread A (UART parser running in background thread): parses packets as fast as bytes arrive, but doesn't hold onto all of them, just puts the latest one in a global struct
+- Thread B (triggered every 80ms by scheduler): wakes up, grabs the latest parsed packet (shared memory with thread A and protected with mutexes), and broadcasts that to localhost
+- This aligns with:
+  - "resource-constrained" → no growing queues
+  - Realistic embedded stuff (e.g., updating a housekeeping packet on a schedule)
+
+- It might be simpler than that. Maybe they just want one thread to be triggered every 80ms and parse as much data as it can?
+-
 
 4. In Python, design a simple simulator/tester to drive your IMU parser. 
 
@@ -52,7 +82,7 @@ environment that will execute the IMU parsing code every `80ms` and broadcast th
 
 - `src/` → C++ source code
 - `include/` → C++ headers
-- `test/` → Future test scripts (e.g. Python simulator)
+- `test/` → catch2 unit tests, future test scripts (e.g. Python simulator)
 - `build/` → CMake build output (gitignored)
 
 ### How to build
