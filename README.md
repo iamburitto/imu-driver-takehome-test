@@ -28,14 +28,16 @@ An IMU outputs a byte stream at `921600` baud with a packet definition described
 
 2. What modifications, if any, would you need to make to the code from 1) if the Linux host was a little endian processor? Describe those modifications.
 
-So first of all, if we assume network byte order (big endian) for the IMU itself (sometimes its actually a gross mix between the two), then typically the code has to handle endianness like this:
+No.
 
-    1. must convert from host byte order to network byte order (big endian) on the sending side
-    2. must covert from network byte order (big endian) to host byte order on the receiving side
+If we assume network byte order (big endian) for the IMU itself (sometimes its actually a gross mix between the two), then typically the code has to handle endianness like this:
 
-Answer to this question: it shouldn't matter at all if the linux host is big endian or little endian - both for the uint32_t and the floats because my `fendian.hpp` uses should take care of that whether or not the host is big endian or little endian because I am using `htobe32()` and `be32toh()`, which validate that the host is not already big endian before doing any byte swapping.
+    1. must convert from host byte order to network byte order (big endian) on the sending side (driver)
+    2. must covert from network byte order (big endian) to host byte order on the receiving side (in the IMU emulator, or in the unit tests.)
 
-However, if the packet protocol itself (the IMU) changed to be little endian, we'd have to use `htole32()` and `le32toh()` calls to fiddle with its contents, and I'd have to add those to my `fendian.hpp` too.
+It shouldn't matter at all if the linux host is big endian or little endian because I am using `htobe32()` and `be32toh()`, which validate that the host is not already big endian before doing any byte swapping. That's true for both the `uint32_t` packet_count and the three floats, because my `include/fendian.hpp` tool uses `htobe32()` and `be32toh()` to swap endianness in the unions.
+
+However, if the packet protocol itself (the IMU) changed to be little endian, we'd have to change the code to use `htole32()` and `le32toh()` calls to fiddle with its contents, and I'd have to add those to my `fendian.hpp` too.
 
 3. Write a C++ Linux program designed to execute in a resource constrained, multi-threaded 
 environment that will execute the IMU parsing code every `80ms` and broadcast the parsed results on the localhost network.
