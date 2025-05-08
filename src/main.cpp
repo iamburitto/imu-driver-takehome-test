@@ -23,30 +23,41 @@ constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
 
 int configure_uart(const char* device);
 
-/*
-    Right now this main() is a simple single-threaded loop that:
-
-    1. Reads raw bytes from the UART port
-    2. Buffers them
-    3. Scans for the 0x7F F0 1C AF sync header
-    4. Extracts a full 20-byte packet
-    5. Passes it to parse_imu_packet()
-    6. Prints the result to stdout
-
-    Example output: 
-
-    [UART] Found sync header at offset 12
-    [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
-    
-    Next:
-
-    1. Make loop run every 80ms to get raw data sent by python program
-    2. Broadcast the data to localhost read by python program to verify data matches
-    3. Probably needs to read chunks of data later, not just 1 byte at a time
-*/
-
 int main(int argc, char** argv)
 {
+    // Configure UART
+
+    // Start UART parser thread
+
+    // Start 80ms broadcaster thread
+
+    // Join both threads at the end (to keep the program running)
+}
+
+int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
+{
+    /*
+        Right now this main() is a simple single-threaded loop that:
+
+        1. Reads raw bytes from the UART port
+        2. Buffers them
+        3. Scans for the 0x7F F0 1C AF sync header
+        4. Extracts a full 20-byte packet
+        5. Passes it to parse_imu_packet()
+        6. Prints the result to stdout
+
+        Example output: 
+
+        [UART] Found sync header at offset 12
+        [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
+        
+        Next:
+
+        1. Make loop run every 80ms to get raw data sent by python program
+        2. Broadcast the data to localhost read by python program to verify data matches
+        3. Probably needs to read chunks of data later, not just 1 byte at a time
+    */
+
     // read serial port path from command-line args (default to /dev/tty1, replace with /dev/pts/X for testing)
     const char* port = (argc > 1) ? argv[1] : "/dev/tty1";
     
@@ -156,10 +167,12 @@ int main(int argc, char** argv)
         */
 }
 
-/*
-    just to make sure I could get bytes from the emulator side with socat
-*/
-int main_initial_test_version(int argc, char** argv) {
+int main_initial_uart_test_version(int argc, char** argv)
+{
+    /*
+        just to make sure I could get bytes from the emulator side with socat
+    */
+
     const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
     
     if (argc > 1)
