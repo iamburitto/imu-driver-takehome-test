@@ -6,13 +6,13 @@
 #include "fendian.hpp"
 
 // TODO: do I need to pack this? probably not since they're all the same data size.
-struct ImuPacket
+typedef struct
 {
     uint32_t packet_count;
     float32_t x_rate_rdps;
     float32_t y_rate_rdps;
     float32_t z_rate_rdps;
-};
+} ImuPacket;
 
 bool parse_imu_packet(const uint8_t* buffer, size_t len, ImuPacket& out);
 
