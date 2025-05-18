@@ -113,13 +113,6 @@ void broadcaster_80ms_thread()
         perror("Failed to open socket");
         return;
     }
-
-    // open up a UDP socket
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        perror("socket");
-        return;
-    }
     
     // set up socket destination address (broadcast to localhost, python script emulator/tester will be reading it)
     sockaddr_in dest_address{};
