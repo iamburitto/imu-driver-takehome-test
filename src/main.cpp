@@ -106,11 +106,11 @@ void uart_reader_thread(int fd) // scroll to the end of this file for a list of 
 
 void broadcaster_80ms_thread()
 {
-    // open a UDP socket
-    int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock_fd < 0)
-    {
-        perror("Failed to open socket");
+
+    // open up a UDP socket
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
         return;
     }
     
