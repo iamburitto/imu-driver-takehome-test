@@ -66,7 +66,7 @@ while True:
     except socket.timeout:
         pass
     
-        time.sleep(SLEEP_SEC) # 0.020 sec == 20ms == 50Hz, c++ processes every 80ms (12.5hz)
+    time.sleep(SLEEP_SEC) # 0.020 sec == 20ms == 50Hz, c++ processes every 80ms (12.5hz)
 
 
 
