@@ -39,13 +39,52 @@ constexpr size_t UART_BUFFER_CAPACITY = 1024; // TODO: calculate how big it actu
 constexpr size_t PACKET_SIZE  = 20;
 constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
 
-void uart_reader_thread(int fd) // scroll to the end of this file for a list of possible optimizations
+#define MAX_UDP_PAYLOAD_SIZE 128
+
+void uart_reader_thread(int fd)
 {
     /*
         1. Buffers raw bytes from the UART port 1 at a time (shifts left to drop oldest byte if full)
         2. Scans for the 0x7F F0 1C AF sync header (sliding 20 byte window)
         3. Calls parse_imu_packet() to extract packet fields to imu_packet_t struct
         4. On successful extraction: lock mutex, update g_latest_packet, unlock mutex
+    */
+    
+    /*
+        Visualizing:
+                
+        - Buffer is a scrolling strip of tape:
+        - Scan from the left for a 4-byte sync at the beginning of a 20 byte window
+        - When we parse a packet, we cut out the 20 byte window, and slide the remaining tape all the way to the left.
+
+        Optimizations:
+
+        1. instead of always using memmove() to shift the data left, use pointers to move the 20 byte window through the data to the right.
+          - memmove() to shift leftover bytes and 20 byte window to the beginning of the buffer when we are close to running out of room
+            - NOTE: This should only happen occasionally
+          - can use read_index and write_index pointers and treat it like a circular buffer that just isn't allowed to wrap
+            - NOTE: shifting left is the same algorithm as defragmenting a real circular buffer
+          
+          Why:
+          
+            - Shifting data with memmove() is expensive if there's a lot of it
+            - It would better support optimization 2 below:
+
+        2. update to use select() to read as many bytes as available instead of just 1 at a time (nonblocking)
+
+            Why:
+            
+            - fewer system calls could improve performance and possibly jitter
+            - often necessary with real hardware to avoid missing data because:
+              - small buffers in FPGA or hardware UART implementation
+              - bursty data and/or lots of data at once
+              - lack of DMA FIFOs
+    
+            How:
+            
+            - I'd have to set up the UART differently with the VTIME business cause its only 1 byte right now.
+            - Until I know how many samples this thing is actually going to be sending out in real life, its easier to wait.
+        
     */
 
     uint8_t buffer[UART_BUFFER_CAPACITY];
@@ -79,7 +118,7 @@ void uart_reader_thread(int fd) // scroll to the end of this file for a list of 
                 imu_packet_t pkt;
                 if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
                 {
-                    g_latest_mutex.lock(); // std::lock_guard<std::mutex> lock(g_latest_mutex); guards against early returns/exceptions and unlocks automagically says the internet
+                    g_latest_mutex.lock(); // possible improvement if I use std::lock_guard<std::mutex> lock(g_latest_mutex); guards against early returns/exceptions and unlocks automagically says the internet
                     g_latest_packet = pkt; // shallow copy is ok here
 
                     // printf("[READER][UART] Found sync header at offset %zd\n", i);
@@ -91,7 +130,7 @@ void uart_reader_thread(int fd) // scroll to the end of this file for a list of 
                     // Remove all bytes up through the end of that packet
                     size_t remaining = buffer_size_nbytes - (i + PACKET_SIZE);
 
-                    // shift buffer left to get rid of the packet
+                    // shift all remaining bytes in buffer left to get rid of the packet
                     memmove(&buffer[0], &buffer[i + PACKET_SIZE], remaining);
 
                     // update buffer length
@@ -123,7 +162,7 @@ void broadcaster_80ms_thread()
 
     while(true)
     {
-        // I honestly really want to switch to using regular non-c++ pthreads for actual flight code, cause this isn't enough control over the time I don't think and I hate all these namespaces ::
+        // I want to switch to using regular non-c++ pthreads for actual flight code, cause this isn't enough control over the time I don't think and I hate all these namespaces ::
         std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
         g_latest_mutex.lock(); // std::lock_guard<std::mutex> lock(g_latest_mutex); guards against early returns/exceptions and unlocks automagically says the internet
@@ -136,21 +175,34 @@ void broadcaster_80ms_thread()
             continue;
         }
         
-        last_pkt = pkt; // store the last one to make sure not stale
-        
-        if (pkt.packet_count > 0)
+        // check for nothing actually received yet (actual packet count from emulator will start at 1)
+        if(pkt.packet_count <= 0)
         {
-            // Format packet into a text buffer (later: maybe binary - definitely binary if this was being used to send out commands to a real emulator, or something actually on the spacecraft and not just a python script on the ground
-            char buffer[128];
-            snprintf(buffer, sizeof(buffer),
-            "Packet #%u: X=%.2f Y=%.2f Z=%.2f",
-            pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
-            
-            printf("[DRIVER][UDP_WRITE]: %s\n",buffer);
-            printf("\n");
+            continue;
+        }
         
-            // broadcast/send to localhost:9000
-            sendto(sock, buffer, strlen(buffer), 0,
+        last_pkt = pkt; // store the last one for future stale check
+        
+        // Format packet into a text buffer
+        char udp_payload_buf[MAX_UDP_PAYLOAD_SIZE] = {'\0'};
+        int bytes_written = snprintf(udp_payload_buf, sizeof(udp_payload_buf),
+            "Packet #%u: X=%.2f Y=%.2f Z=%.2f",
+            pkt.packet_count,
+            pkt.x_rate_rdps,
+            pkt.y_rate_rdps,
+            pkt.z_rate_rdps);
+        
+        if (bytes_written >= MAX_UDP_PAYLOAD_SIZE)
+        {
+            perror("UDP payload was truncated.");
+        }
+        else
+        {
+            printf("[DRIVER][UDP_WRITE]: %s\n",udp_payload_buf);
+            printf("Bytes written: %d\n\n", bytes_written);
+        
+            // write to localhost:9000
+            sendto(sock, udp_payload_buf, strlen(udp_payload_buf), 0,
                 (struct sockaddr*)&dest_address, sizeof(dest_address));
         }
     }
@@ -172,187 +224,3 @@ int main(int argc, char** argv)
 
     return 0;
 }
-
-/*
-    EVERYTHING AFTER THIS IS JUST PREVIOUS VERSIONS OF MAIN LOOP WHILE I WAS GETTING THE CODE WORKING...
-    PLUS SOME OPTIMIZATION IDEAS THAT SHOULD BE MOVED TO THE README LATER BUT HERE'S A NOTE IF I FORGET
-*/
-
-int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
-{
-    /*
-        Right now this main() is a simple single-threaded loop that:
-
-        1. Reads raw bytes from the UART port
-        2. Buffers them
-        3. Scans for the 0x7F F0 1C AF sync header
-        4. Extracts a full 20-byte packet
-        5. Passes it to parse_imu_packet()
-        6. Prints the result to stdout
-
-        Example output: 
-
-        [UART] Found sync header at offset 12
-        [IMU] Packet #42: X=10.00, Y=20.00, Z=40.00
-        
-        Next:
-
-        1. Make loop run every 80ms to get raw data sent by python program
-        2. Broadcast the data to localhost read by python program to verify data matches
-        3. Probably needs to read chunks of data later, not just 1 byte at a time
-    */
-
-    // read serial port path from command-line args (default to /dev/tty1, replace with /dev/pts/X for testing)
-    const char* port = (argc > 1) ? argv[1] : "/dev/tty1";
-    
-    // call configure_uart(port) -> fd
-    printf("Opening serial port: %s\n", port);
-    int fd = configure_uart(port);
-    if (fd < 0)
-    {
-        perror("UART serial port open failed");
-        return 1;
-    }
-
-    // Create a read buffer
-    uint8_t buffer[UART_BUFFER_CAPACITY];
-
-    // create a small sliding window for sync detection
-    size_t buffer_size_nbytes = 0; // buffer size is the current number of bytes in the buffer
-
-    // honestly if I'm going to do 1 byte at a time I should probably be using a circular buffer, the logic would be easier.
-    // oh well.
-
-    while (true) // scroll to the bottom to see a comment with possible optimizations
-    {
-        // get a byte (can optimize by reading multiple bytes later)
-        uint8_t byte;
-        if (read(fd, &byte, 1) != 1) continue;
-
-        // if the buffer is full
-        if(buffer_size_nbytes >= UART_BUFFER_CAPACITY)
-        {
-            // shift all the data left by 1 to drop the oldest byte and make space
-            // TODO: print some kind of debug info here so we know we're dropping one?
-            memmove(&buffer[0], &buffer[1], UART_BUFFER_CAPACITY - 1);
-
-            // update buffer size to make room
-            buffer_size_nbytes = UART_BUFFER_CAPACITY - 1;
-        }
-
-        // append new byte to end of buffer
-        buffer[buffer_size_nbytes] = byte;
-    
-        // increment buffer_size
-        buffer_size_nbytes++;
-
-        // NOTE: This whole thing would be a lot easier for me to read personally if I put it in a state machine,
-        // but the goal right now is functionality not prettiness, and some folks don't like state machines as much as I do.
-
-        // Slide 20 byte window right to scan for SYNC 
-        for (size_t i = 0; i + PACKET_SIZE <= buffer_size_nbytes; ++i)
-        {
-            // Check if 4 bytes starting at that position match the sync header (0x7F F0 1C AF)
-            if( memcmp(&buffer[i], SYNC_BYTES, 4) == 0)
-            {
-                // Call parse_imu_packet() on 20-byte window starting there
-                imu_packet_t pkt;
-                
-                if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
-                {
-                    // printf("[UART] Found sync header at offset %zd\n", i);
-                    printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
-                        pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
-
-                    // Remove all bytes up through the end of that packet
-                    size_t remaining = buffer_size_nbytes - (i + PACKET_SIZE);
-
-                    // shift buffer left to get rid of the packet (later we can optimize to only shift when 20 byte window hits the end)
-                    memmove(&buffer[0], &buffer[i + PACKET_SIZE], remaining);
-
-                    // update buffer length
-                    buffer_size_nbytes = remaining;
-
-                    break;
-                }
-            }
-        }
-    } 
-
-}
-
-int main_initial_uart_test_version(int argc, char** argv)
-{
-    /*
-        just to make sure I could get bytes from the emulator side with socat
-    */
-
-    const char* port = "/dev/tty1";  // default - replace with /dev/pts/X for testing
-    
-    if (argc > 1)
-    {
-        port = argv[1]; // override port with command line argument
-    }
-
-    printf("Opening serial port: %s\n\n", port);
-    int fd = configure_uart(port);
-    if (fd < 0)
-    {
-        return 1;
-    }
-
-    uint8_t buf[1024];
-    while (true)
-    {
-        ssize_t nbytes_read = read(fd, buf, sizeof(buf));
-
-        if (nbytes_read > 0)
-        {
-            printf("Read %zd bytes: ", nbytes_read);
-
-            for (ssize_t i = 0; i < nbytes_read; ++i)
-            {
-                printf("%02X ", buf[i]);
-            }
-            printf("\n");
-        }
-        else
-        {
-            usleep(1000); // Small sleep to avoid busy-looping
-        }
-    }
-
-    close(fd);
-    return 0;
-}
-
-/*
-        Visualizing the above and possible optimizations:
-                
-        Buffer is a scrolling strip of tape:
-        You read in bytes on the right.
-
-        Right now, I  scan from the left for a 4-byte sync window.
-        When we parse a packet, we cut it out, and slide the remaining tape left.
-
-        Optimizations:
-
-        only shift data left when we run out of room, not every time
-        (i.e. skip the cut and paste until we get close to the end.)
-        Need a start_of_window pointer for that.
-
-        Since we're only doing one byte at a time right now:
-        A simple circular buffer and/or a state machine would do the trick too.
-
-        Either way, we could also change this code to process as many bytes as possible instead of just 1.
-
-        Doing that could improve performance and possibly jitter to have fewer system calls.
-        Also its often necessary with real hardware because:
-        - small buffers in FPGA or hardware UART implementation
-        - bursty data and/or lots of data at once
-        - lack of DMA FIFOs
-
-        I'd have to set up the UART differently with the VTIME business cause its only 1 byte right now.
-        Until I know how many samples this thing is actually going to be sending out in real life, its easier to wait.
-        
-*/

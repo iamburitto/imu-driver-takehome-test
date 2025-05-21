@@ -4,7 +4,7 @@ int configure_uart(const char* device)
 {
     // Open the serial port for read/write, no controlling terminal, synchronous writes
     // TODO: read man termios to actually understand these options that I finaegled together from stack overflow
-    printf("Opening serial port: %s\n", device);
+    printf("Opening serial port: %s\n\n", device);
     int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
     if (fd < 0)
     {
