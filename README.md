@@ -1,5 +1,21 @@
 # IMU UART Parser and IMU simulator - Takehome Assignment
 
+<!-- TOC -->
+
+- [IMU UART Parser and IMU simulator - Takehome Assignment](#imu-uart-parser-and-imu-simulator---takehome-assignment)
+    - [Prompt](#prompt)
+    - [Answer to question 2 endianness:](#answer-to-question-2-endianness)
+    - [Project Structure](#project-structure)
+    - [How to build and run catch2 unit tests](#how-to-build-and-run-catch2-unit-tests)
+    - [How to test imu_parser using socat to create two linked virtual serial ports](#how-to-test-imu_parser-using-socat-to-create-two-linked-virtual-serial-ports)
+        - [In a nutshell:](#in-a-nutshell)
+        - [In more detail:](#in-more-detail)
+    - [FINAL PRODUCT YO: How to test c++ imu_parser with python imu_simulator.py](#final-product-yo-how-to-test-c-imu_parser-with-python-imu_simulatorpy)
+        - [Terminal Output Result SUCCESS: visually verify that imu_parser parses all packets and echos every 4th packet over UDP](#terminal-output-result-success-visually-verify-that-imu_parser-parses-all-packets-and-echos-every-4th-packet-over-udp)
+
+<!-- /TOC -->
+
+
 This project simulates an IMU data stream over UART and parses packets into structured telemetry, which it broadcasts via UDP on a fixed schedule.
 
 - Reader thread parsing and logging real-time IMU packets ✔
@@ -8,25 +24,7 @@ This project simulates an IMU data stream over UART and parses packets into stru
 - Fully closed-loop test setup working across two protocols ✔
 - Dynamic but predictable values in python script test packets ✔
 
-<!-- vscode-markdown-toc -->
-* 1. [Prompt](#Prompt)
-* 2. [`Answer` to question 2 (endianness):](#Answertoquestion2endianness:)
-* 3. [Project Structure](#ProjectStructure)
-* 4. [How to build](#Howtobuild)
-* 5. [How to test `imu_parser` using `socat` to create two linked virtual serial ports](#Howtotestimu_parserusingsocattocreatetwolinkedvirtualserialports)
-	* 5.1. [In a nutshell:](#Inanutshell:)
-	* 5.2. [In more detail:](#Inmoredetail:)
-* 6. [How to test with python simulator (final product yo)](#Howtotestwithpythonsimulatorfinalproductyo)
-	* 6.1. [Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)](#Results:visuallyverifymatchingoutputfromimu_parserandimu_simulator.pyitworks)
-* 7. [Next steps in no particular order](#Nextstepsinnoparticularorder)
-
-<!-- vscode-markdown-toc-config
-	numbering=true
-	autoSave=true
-	/vscode-markdown-toc-config -->
-<!-- /vscode-markdown-toc -->
-
-##  1. <a name='Prompt'></a>Prompt
+##  Prompt
 
 An IMU outputs a byte stream at `921600` baud with a packet definition described below:
 
@@ -60,7 +58,7 @@ In Python, design a simple simulator/tester to drive your IMU parser.
 - The data contained in the byte string can be generated in any way of your choosing to best test the parser.
 - Subsequently, it should then read the broadcasted results from 3) on the localhost network to validate the output.
 
-##  2. <a name='Answertoquestion2endianness:'></a>`Answer` to question 2 (endianness):
+##  Answer to question 2 (endianness):
 
 No modifications are necessary (if we can assume that the IMU packets themselves really are big-endian.)
 
@@ -97,7 +95,7 @@ I wasn't sure. I decided to assume the latter and do two threads for fun - could
   - "resource-constrained" → no growing queues
   - Realistic embedded stuff (e.g., updating a housekeeping packet on a schedule)
 
-`NOTE`: This could be done all sorts of ways depending on the architecture. In reality, some threads are time critical and tightly controlled with extra knobs and buttons (CPU, start time, end time, priority, etc etc), and we'd probably want Linux RT.
+`NOTE`: This could be done all sorts of ways depending on the architecture. In reality, some threads are time critical and tightly controlled with extra knobs and buttons (CPU, offset, start time, end time, priority, etc etc), and we'd probably want Linux RT.
 
 Other considerations:
 
@@ -109,14 +107,14 @@ GNC would probably get only the most recent telemetry point when the FCSW model 
 
 It all depends on what mission operations and GNC folks want.
 
-##  3. <a name='ProjectStructure'></a>Project Structure
+##  Project Structure
 
 - `src/` → C++ source code
 - `include/` → C++ headers
 - `test/` → catch2 unit tests (`imu_simulator.py`) and `imu_simulator.py`
 - `build/` → CMake build output (gitignored), the `bin` directory has the `unit_tests` and `imu_parser` executables
 
-##  4. <a name='Howtobuild'></a>How to build
+##  How to build and run catch2 unit tests
 
 Everything:
 
@@ -139,7 +137,7 @@ Randomness seeded to: 1089831589
 All tests passed (1 assertion in 1 test case)
 ```
 
-##  5. <a name='Howtotestimu_parserusingsocattocreatetwolinkedvirtualserialports'></a>How to test `imu_parser` using `socat` to create two linked virtual serial ports
+##  How to test `imu_parser` using `socat` to create two linked virtual serial ports
 
 A `pty` is a `pseudoterminal` (fake serial port) when we don't have access to an actual hardware terminal serial port (`tty`).
 
@@ -154,7 +152,7 @@ Anything written to one side will show up on the other side.
 
 To test this we need 3 terminal windows.
 
-###  5.1. <a name='Inanutshell:'></a>In a nutshell:
+###  In a nutshell:
 
 ```bash
 # Terminal 1: socat to created two linked PTYs (virtual serial ports TX/RX)
@@ -174,7 +172,7 @@ echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x
 netcat -ul 9000
 ```
 
-###  5.2. <a name='Inmoredetail:'></a>In more detail:
+###  5.2. In more detail:
 
 In `terminal 1`: create two linked virtual serial ports:
 
@@ -214,7 +212,7 @@ The simulated IMU data bytes will show up in `terminal 1`:
 Read 20 bytes: 7F F0 1C AF 00 00 00 01 41 20 00 00 41 A0 00 00 42 20 00 00
 ```
 
-##  6. <a name='Howtotestwithpythonsimulatorfinalproductyo'></a>How to test with python simulator (final product yo)
+##  FINAL PRODUCT YO: How to test c++ `imu_parser` with python `imu_simulator.py`
 
 Replace terminal 3 echo and terminal 4 netcat with a single terminal that calls the python script in `/test/imu_simulator.py`:
 
@@ -239,160 +237,109 @@ or:
 python3 imu_simulator.py /dev/pts/7 --udp_port 9100 # optional
 ```
 
-###  6.1. <a name='Results:visuallyverifymatchingoutputfromimu_parserandimu_simulator.pyitworks'></a>Results: visually verify matching output from imu_parser and imu_simulator.py (it works!)
+###  Terminal Output Result SUCCESS: visually verify that imu_parser parses all packets and echos every 4th packet over UDP
 
-The packets being sent out by the python script over the PTY should be echoed back in UDP.
+Right now the IMU simulator has a 20ms period (50Hz) and the IMU parser has an 80ms period (12.5Hz).
 
-Note: right now the simulator has a 20ms period (50Hz) and the simulator has an 80ms period (12.5Hz).
-Technically this baud rate could handle 92160 bytes/second, which div/20 bytes is 4608 IMU packets/second without overhead, but that's probably not happening :P
+That means that although the imu parser parses all packets from the UART, only every 4th packet is broadcast back over UDP to the simulator.
 
-I need to do the math here to figure out what's reasonable.
+After modifying the parser python to read using a nonblocking UDP port and `select()` and actually execute every 20ms, that is what we see:
 
-But I know none of the packets are missing, because I can visually see it:
+![alt text](images/every_4th_packet.png)
 
-You should see output from `imu_parser.cpp` that prints the packets parsed from the binary stream it reads from the serial port from  `imu_simulator.py` and the parsed packet string echos it broadcasts over UDP localhost:9000 back to `imu_simulator.py`:
+Here's text results:
+
+`imu_parser.py` parses simulator packets from UART bytestream in one thread and echos the most recent one back over UDP in a second thread that runs once every 80ms. That ends up being only every 4th packet because the simulator sends a packet every 20ms.
+
 
 ```bash
-britt@Britt:~/git/true-anomaly-fsw-code-test/build$ ./bin/imu_uart_parser /dev/pts/11
-Opening serial port: /dev/pts/11
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[BROADCAST] Packet #0: X=0.00 Y=0.00 Z=0.00
-[READER][IMU] Packet #1: X=11.00, Y=21.00, Z=41.00 (FIRST PACKET READ FROM UART (from imu_simulator.py) in uart_reader thread)
-[BROADCAST] Packet #1: X=11.00 Y=21.00 Z=41.00 (FIRST PACKET (latest) BROADCAST over UDP (to imu_simulator.py) over localhost:9000 in broadcast_80ms_thread )
-[READER][IMU] Packet #2: X=12.00, Y=22.00, Z=42.00
-[BROADCAST] Packet #2: X=12.00 Y=22.00 Z=42.00
-[READER][IMU] Packet #3: X=10.00, Y=23.00, Z=43.00
-[BROADCAST] Packet #3: X=10.00 Y=23.00 Z=43.00
-[READER][IMU] Packet #4: X=11.00, Y=24.00, Z=44.00
-[BROADCAST] Packet #4: X=11.00 Y=24.00 Z=44.00
-[READER][IMU] Packet #5: X=12.00, Y=20.00, Z=45.00
-[BROADCAST] Packet #5: X=12.00 Y=20.00 Z=45.00
-[READER][IMU] Packet #6: X=10.00, Y=21.00, Z=46.00
-[BROADCAST] Packet #6: X=10.00 Y=21.00 Z=46.00
-[READER][IMU] Packet #7: X=11.00, Y=22.00, Z=40.00
-[BROADCAST] Packet #7: X=11.00 Y=22.00 Z=40.00
-[READER][IMU] Packet #8: X=12.00, Y=23.00, Z=41.00
-[BROADCAST] Packet #8: X=12.00 Y=23.00 Z=41.00
-[READER][IMU] Packet #9: X=10.00, Y=24.00, Z=42.00
-[BROADCAST] Packet #9: X=10.00 Y=24.00 Z=42.00
-[READER][IMU] Packet #10: X=11.00, Y=20.00, Z=43.00
-[BROADCAST] Packet #10: X=11.00 Y=20.00 Z=43.00
-[READER][IMU] Packet #11: X=12.00, Y=21.00, Z=44.00
-[BROADCAST] Packet #11: X=12.00 Y=21.00 Z=44.00
-[READER][IMU] Packet #12: X=10.00, Y=22.00, Z=45.00
-[BROADCAST] Packet #12: X=10.00 Y=22.00 Z=45.00
-[READER][IMU] Packet #13: X=11.00, Y=23.00, Z=46.00
-[BROADCAST] Packet #13: X=11.00 Y=23.00 Z=46.00
-[READER][IMU] Packet #14: X=12.00, Y=24.00, Z=40.00
-[BROADCAST] Packet #14: X=12.00 Y=24.00 Z=40.00
-[READER][IMU] Packet #15: X=10.00, Y=20.00, Z=41.00
-[BROADCAST] Packet #15: X=10.00 Y=20.00 Z=41.00
-[READER][IMU] Packet #16: X=11.00, Y=21.00, Z=42.00
-[BROADCAST] Packet #16: X=11.00 Y=21.00 Z=42.00
-[READER][IMU] Packet #17: X=12.00, Y=22.00, Z=43.00
-[BROADCAST] Packet #17: X=12.00 Y=22.00 Z=43.00
-[READER][IMU] Packet #18: X=10.00, Y=23.00, Z=44.00
-[BROADCAST] Packet #18: X=10.00 Y=23.00 Z=44.00
-[READER][IMU] Packet #19: X=11.00, Y=24.00, Z=45.00
-[BROADCAST] Packet #19: X=11.00 Y=24.00 Z=45.00
-[READER][IMU] Packet #20: X=12.00, Y=20.00, Z=46.00
-[BROADCAST] Packet #20: X=12.00 Y=20.00 Z=46.00
-[READER][IMU] Packet #21: X=10.00, Y=21.00, Z=40.00
-[BROADCAST] Packet #21: X=10.00 Y=21.00 Z=40.00
-[READER][IMU] Packet #22: X=11.00, Y=22.00, Z=41.00
-[BROADCAST] Packet #22: X=11.00 Y=22.00 Z=41.00
-[READER][IMU] Packet #23: X=12.00, Y=23.00, Z=42.00
-[BROADCAST] Packet #23: X=12.00 Y=23.00 Z=42.00
-[READER][IMU] Packet #24: X=10.00, Y=24.00, Z=43.00
-[BROADCAST] Packet #24: X=10.00 Y=24.00 Z=43.00
-[READER][IMU] Packet #25: X=11.00, Y=20.00, Z=44.00
-[BROADCAST] Packet #25: X=11.00 Y=20.00 Z=44.00
-[READER][IMU] Packet #26: X=12.00, Y=21.00, Z=45.00
-[BROADCAST] Packet #26: X=12.00 Y=21.00 Z=45.00
-[READER][IMU] Packet #27: X=10.00, Y=22.00, Z=46.00
-[BROADCAST] Packet #27: X=10.00 Y=22.00 Z=46.00
-[READER][IMU] Packet #28: X=11.00, Y=23.00, Z=40.00
-[BROADCAST] Packet #28: X=11.00 Y=23.00 Z=40.00
-[READER][IMU] Packet #29: X=12.00, Y=24.00, Z=41.00
-[BROADCAST] Packet #29: X=12.00 Y=24.00 Z=41.00
-[READER][IMU] Packet #30: X=10.00, Y=20.00, Z=42.00
-[BROADCAST] Packet #30: X=10.00 Y=20.00 Z=42.00
-[READER][IMU] Packet #31: X=11.00, Y=21.00, Z=43.00
-[BROADCAST] Packet #31: X=11.00 Y=21.00 Z=43.00
-[READER][IMU] Packet #32: X=12.00, Y=22.00, Z=44.00
-[BROADCAST] Packet #32: X=12.00 Y=22.00 Z=44.00
-[READER][IMU] Packet #33: X=10.00, Y=23.00, Z=45.00
-[BROADCAST] Packet #33: X=10.00 Y=23.00 Z=45.00
-[READER][IMU] Packet #34: X=11.00, Y=24.00, Z=46.00
-[BROADCAST] Packet #34: X=11.00 Y=24.00 Z=46.00
+britt@Britt:~/git/true-anomaly-fsw-code-test/build$ ./bin/imu_uart_parser /dev/pts/5
+Opening serial port: /dev/pts/5
+
+[DRIVER][UART_READ]: Packet #1: X=11.00, Y=21.00, Z=41.00
+[DRIVER][UDP_WRITE]: Packet #1: X=11.00 Y=21.00 Z=41.00
+Bytes written: 34
+
+[DRIVER][UART_READ]: Packet #2: X=12.00, Y=22.00, Z=42.00
+[DRIVER][UART_READ]: Packet #3: X=10.00, Y=23.00, Z=43.00
+[DRIVER][UART_READ]: Packet #4: X=11.00, Y=24.00, Z=44.00
+[DRIVER][UART_READ]: Packet #5: X=12.00, Y=20.00, Z=45.00
+[DRIVER][UDP_WRITE]: Packet #5: X=12.00 Y=20.00 Z=45.00
+Bytes written: 34
+
+[DRIVER][UART_READ]: Packet #6: X=10.00, Y=21.00, Z=46.00
+[DRIVER][UART_READ]: Packet #7: X=11.00, Y=22.00, Z=40.00
+[DRIVER][UART_READ]: Packet #8: X=12.00, Y=23.00, Z=41.00
+[DRIVER][UART_READ]: Packet #9: X=10.00, Y=24.00, Z=42.00
+[DRIVER][UDP_WRITE]: Packet #9: X=10.00 Y=24.00 Z=42.00
+Bytes written: 34
+
+[DRIVER][UART_READ]: Packet #10: X=11.00, Y=20.00, Z=43.00
+[DRIVER][UART_READ]: Packet #11: X=12.00, Y=21.00, Z=44.00
+[DRIVER][UART_READ]: Packet #12: X=10.00, Y=22.00, Z=45.00
+[DRIVER][UART_READ]: Packet #13: X=11.00, Y=23.00, Z=46.00
+[DRIVER][UDP_WRITE]: Packet #13: X=11.00 Y=23.00 Z=46.00
+Bytes written: 35
 ```
 
-And `imu_simulator.py` prints those UDP packet responses it reads out of localhost:9000, so you can see they are 1:1 matching: 
+And `imu_simulator.py` simulator writes packet every 20ms and gets a UDP response back for every 4th packet:
 
 ```bash
-britt@Britt:~/git/true-anomaly-fsw-code-test/test$ ./imu_simulator.py /dev/pts/12
-Sending IMU packets to /dev/pts/12, listening for UDP on localhost port 9000...
-RECV: Packet #1: X=11.00 Y=21.00 Z=41.00
-RECV: Packet #2: X=12.00 Y=22.00 Z=42.00
-RECV: Packet #3: X=10.00 Y=23.00 Z=43.00
-RECV: Packet #4: X=11.00 Y=24.00 Z=44.00
-RECV: Packet #5: X=12.00 Y=20.00 Z=45.00
-RECV: Packet #6: X=10.00 Y=21.00 Z=46.00
-RECV: Packet #7: X=11.00 Y=22.00 Z=40.00
-RECV: Packet #8: X=12.00 Y=23.00 Z=41.00
-RECV: Packet #9: X=10.00 Y=24.00 Z=42.00
-RECV: Packet #10: X=11.00 Y=20.00 Z=43.00
-RECV: Packet #11: X=12.00 Y=21.00 Z=44.00
-RECV: Packet #12: X=10.00 Y=22.00 Z=45.00
-RECV: Packet #13: X=11.00 Y=23.00 Z=46.00
-RECV: Packet #14: X=12.00 Y=24.00 Z=40.00
-RECV: Packet #15: X=10.00 Y=20.00 Z=41.00
-RECV: Packet #16: X=11.00 Y=21.00 Z=42.00
-RECV: Packet #17: X=12.00 Y=22.00 Z=43.00
-RECV: Packet #18: X=10.00 Y=23.00 Z=44.00
-RECV: Packet #19: X=11.00 Y=24.00 Z=45.00
-RECV: Packet #20: X=12.00 Y=20.00 Z=46.00
-RECV: Packet #21: X=10.00 Y=21.00 Z=40.00
-RECV: Packet #22: X=11.00 Y=22.00 Z=41.00
-RECV: Packet #23: X=12.00 Y=23.00 Z=42.00
-RECV: Packet #24: X=10.00 Y=24.00 Z=43.00
-RECV: Packet #25: X=11.00 Y=20.00 Z=44.00
-RECV: Packet #26: X=12.00 Y=21.00 Z=45.00
-RECV: Packet #27: X=10.00 Y=22.00 Z=46.00
-RECV: Packet #28: X=11.00 Y=23.00 Z=40.00
-RECV: Packet #29: X=12.00 Y=24.00 Z=41.00
-RECV: Packet #30: X=10.00 Y=20.00 Z=42.00
-RECV: Packet #31: X=11.00 Y=21.00 Z=43.00
-RECV: Packet #32: X=12.00 Y=22.00 Z=44.00
-RECV: Packet #33: X=10.00 Y=23.00 Z=45.00
-RECV: Packet #34: X=11.00 Y=24.00 Z=46.00
+britt@Britt:~/git/true-anomaly-fsw-code-test/test$ ./imu_simulator.py /dev/pts/10
+Sending IMU packets to /dev/pts/10, listening for UDP packets on 127.0.0.1:9000
+
+[EMULATOR][UART_WRITE]: Packet #1: X=11.00 Y=21.00 Z=41.00
+[EMULATOR][UART_WRITE]: Packet #2: X=12.00 Y=22.00 Z=42.00
+[EMULATOR][UART_WRITE]: Packet #3: X=10.00 Y=23.00 Z=43.00
+[EMULATOR][UDP_READ]  : Packet #1: X=11.00 Y=21.00 Z=41.00
+Bytes read: 34
+
+[EMULATOR][UART_WRITE]: Packet #4: X=11.00 Y=24.00 Z=44.00
+[EMULATOR][UART_WRITE]: Packet #5: X=12.00 Y=20.00 Z=45.00
+[EMULATOR][UART_WRITE]: Packet #6: X=10.00 Y=21.00 Z=46.00
+[EMULATOR][UDP_READ]  : Packet #5: X=12.00 Y=20.00 Z=45.00
+Bytes read: 34
+
+[EMULATOR][UART_WRITE]: Packet #7: X=11.00 Y=22.00 Z=40.00
+[EMULATOR][UART_WRITE]: Packet #8: X=12.00 Y=23.00 Z=41.00
+[EMULATOR][UART_WRITE]: Packet #9: X=10.00 Y=24.00 Z=42.00
+[EMULATOR][UART_WRITE]: Packet #10: X=11.00 Y=20.00 Z=43.00
+[EMULATOR][UDP_READ]  : Packet #9: X=10.00 Y=24.00 Z=42.00
+Bytes read: 34
+
+[EMULATOR][UART_WRITE]: Packet #11: X=12.00 Y=21.00 Z=44.00
+[EMULATOR][UART_WRITE]: Packet #12: X=10.00 Y=22.00 Z=45.00
+[EMULATOR][UART_WRITE]: Packet #13: X=11.00 Y=23.00 Z=46.00
+[EMULATOR][UART_WRITE]: Packet #14: X=12.00 Y=24.00 Z=40.00
+[EMULATOR][UDP_READ]  : Packet #13: X=11.00 Y=23.00 Z=46.00
+Bytes read: 35
+
+[EMULATOR][UART_WRITE]: Packet #15: X=10.00 Y=20.00 Z=41.00
+[EMULATOR][UART_WRITE]: Packet #16: X=11.00 Y=21.00 Z=42.00
+[EMULATOR][UART_WRITE]: Packet #17: X=12.00 Y=22.00 Z=43.00
+[EMULATOR][UART_WRITE]: Packet #18: X=10.00 Y=23.00 Z=44.00
+[EMULATOR][UDP_READ]  : Packet #17: X=12.00 Y=22.00 Z=43.00
+Bytes read: 35
+
+[EMULATOR][UART_WRITE]: Packet #19: X=11.00 Y=24.00 Z=45.00
+[EMULATOR][UART_WRITE]: Packet #20: X=12.00 Y=20.00 Z=46.00
+[EMULATOR][UART_WRITE]: Packet #21: X=10.00 Y=21.00 Z=40.00
+[EMULATOR][UART_WRITE]: Packet #22: X=11.00 Y=22.00 Z=41.00
+[EMULATOR][UDP_READ]  : Packet #21: X=10.00 Y=21.00 Z=40.00
+Bytes read: 35
+
+[EMULATOR][UART_WRITE]: Packet #23: X=12.00 Y=23.00 Z=42.00
+[EMULATOR][UART_WRITE]: Packet #24: X=10.00 Y=24.00 Z=43.00
+[EMULATOR][UART_WRITE]: Packet #25: X=11.00 Y=20.00 Z=44.00
+[EMULATOR][UART_WRITE]: Packet #26: X=12.00 Y=21.00 Z=45.00
+[EMULATOR][UDP_READ]  : Packet #25: X=11.00 Y=20.00 Z=44.00
+Bytes read: 35
+
+[EMULATOR][UART_WRITE]: Packet #27: X=10.00 Y=22.00 Z=46.00
+[EMULATOR][UART_WRITE]: Packet #28: X=11.00 Y=23.00 Z=40.00
+[EMULATOR][UART_WRITE]: Packet #29: X=12.00 Y=24.00 Z=41.00
+[EMULATOR][UART_WRITE]: Packet #30: X=10.00 Y=20.00 Z=42.00
+[EMULATOR][UDP_READ]  : Packet #29: X=12.00 Y=24.00 Z=41.00
+Bytes read: 35
 ```
 
