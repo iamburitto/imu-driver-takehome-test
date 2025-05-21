@@ -83,7 +83,7 @@ void uart_reader_thread(int fd) // scroll to the end of this file for a list of 
                     g_latest_packet = pkt; // shallow copy is ok here
 
                     // printf("[READER][UART] Found sync header at offset %zd\n", i);
-                    printf("[READER][IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
+                    printf("[DRIVER][UART_READ]: Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
                         pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
 
                     g_latest_mutex.unlock();
@@ -106,7 +106,6 @@ void uart_reader_thread(int fd) // scroll to the end of this file for a list of 
 
 void broadcaster_80ms_thread()
 {
-
     // open up a UDP socket
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -119,6 +118,8 @@ void broadcaster_80ms_thread()
     dest_address.sin_family = AF_INET;
     dest_address.sin_port = htons(9000); // destination port
     dest_address.sin_addr.s_addr = inet_addr("127.0.0.1"); // destination IP address (localhost)
+    
+    static imu_packet_t last_pkt;
 
     while(true)
     {
@@ -129,15 +130,29 @@ void broadcaster_80ms_thread()
         imu_packet_t pkt = g_latest_packet; // shallow copy ok here
         g_latest_mutex.unlock();
         
-        // Format packet into a text buffer (later: maybe binary - definitely binary if this was being used to send out commands to a real emulator, or something actually on the spacecraft and not just a python script on the ground
-        char buffer[128];
-        snprintf(buffer, sizeof(buffer),
-            "[BROADCAST] Packet #%u: X=%.2f Y=%.2f Z=%.2f",
-            pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
+        // check for stale
+        if(memcmp(&last_pkt, &pkt, sizeof(imu_packet_t)) == 0)
+        {
+            continue;
+        }
         
-        // broadcast/send to localhost:9000
-        sendto(sock, buffer, strlen(buffer), 0,
-           (struct sockaddr*)&dest_address, sizeof(dest_address));
+        last_pkt = pkt; // store the last one to make sure not stale
+        
+        if (pkt.packet_count > 0)
+        {
+            // Format packet into a text buffer (later: maybe binary - definitely binary if this was being used to send out commands to a real emulator, or something actually on the spacecraft and not just a python script on the ground
+            char buffer[128];
+            snprintf(buffer, sizeof(buffer),
+            "Packet #%u: X=%.2f Y=%.2f Z=%.2f",
+            pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
+            
+            printf("[DRIVER][UDP_WRITE]: %s\n",buffer);
+            printf("\n");
+        
+            // broadcast/send to localhost:9000
+            sendto(sock, buffer, strlen(buffer), 0,
+                (struct sockaddr*)&dest_address, sizeof(dest_address));
+        }
     }
 }
 
@@ -245,7 +260,7 @@ int main_second_version_that_parses_and_extracts_packets(int argc, char** argv)
                 
                 if (parse_imu_packet(&buffer[i], PACKET_SIZE, pkt) == true)
                 {
-                    printf("[UART] Found sync header at offset %zd\n", i);
+                    // printf("[UART] Found sync header at offset %zd\n", i);
                     printf("[IMU] Packet #%u: X=%.2f, Y=%.2f, Z=%.2f\n",
                         pkt.packet_count, pkt.x_rate_rdps, pkt.y_rate_rdps, pkt.z_rate_rdps);
 
@@ -279,7 +294,7 @@ int main_initial_uart_test_version(int argc, char** argv)
         port = argv[1]; // override port with command line argument
     }
 
-    printf("Opening serial port: %s\n", port);
+    printf("Opening serial port: %s\n\n", port);
     int fd = configure_uart(port);
     if (fd < 0)
     {

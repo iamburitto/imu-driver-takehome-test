@@ -52,17 +52,19 @@ def make_packet(count, x, y, z):
 # ---------------- Main Loop ---------------- #
 # main logic below (I guess I could put it in a function called main C++ style)
    
-print(f"Sending IMU packets to {args.serial_port}, listening for UDP on localhost port {args.udp_port}...")
+print(f"Sending IMU packets to {args.serial_port}, listening for UDP on localhost port {args.udp_port}...\n\n")
   
 count = 1 # originally I didn't know if this was the packet payload length or just an incrementing id to differentiate packets, assuming the latter
 while True:
     pkt = make_packet(count, 10.0 + count % 3, 20.0 + count % 5, 40.0 + count % 7)
+    print(f"[EMULATOR][UART_WRITE]: Packet #{count}: X={10 + count % 3:.2f} Y={20 + count % 5:.2f} Z={40 + count % 7:.2f}")
     ser.write(pkt) # terminal: echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x20\x00\x00' > /dev/pts/7
     count += 1 # ok if wraps
 
     try:
-        data, _ = udp_sock.recvfrom(1024)
-        print("RECV:", data.decode('utf-8')) # terminal: netcat -ul 9000
+        data, _ = udp_sock.recvfrom(1024) # This blocks until receives 1024 bytes, should make it 20?
+        print("[EMULATOR][UDP_READ]  :", data.decode('utf-8')) # terminal: netcat -ul 9000
+        print()
     except socket.timeout:
         pass
     
