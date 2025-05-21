@@ -14,19 +14,18 @@
 
 import time
 import socket
+import select
 import struct
 import serial
 import argparse
 
 # ---------------- Constants ---------------- #
 
-# Simulated IMU properties (guess)
-SLEEP_SEC = 0.020 # 1 packet every 20ms == 50Hz, c++ processes every 80ms (12.5hz) - just a guess
-
 # ---------------- Argument Parsing ---------------- #
 parser = argparse.ArgumentParser(description="Fake IMU Simulator/Tester")
 parser.add_argument("serial_port", help="Path to virtual UART device PTY (e.g., /dev/pts/7), second argument of the socat output")
 parser.add_argument("--udp_port", type=int, default=9000, help="UDP port to listen on (default: 9000)")
+parser.add_argument("--udp_ip", type=str, default="127.0.0.1", help="UDP port IP address (default: localhost)")
 args = parser.parse_args()
 
 # ---------------- Serial Port (out) ---------------- #
@@ -36,8 +35,12 @@ ser = serial.Serial(args.serial_port, 921600, timeout=1)
 # ---------------- UDP Socket (in) ---------------- #
 # Open UDP socket to receive packets parsed in the C++ "driver" (imu_parser.cpp) and re-broadcast out over UDP on localhost:9000
 udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-udp_sock.bind(('127.0.0.1', args.udp_port)) # localhost
+udp_sock.bind((args.udp_ip, args.udp_port))
+udp_sock.setblocking(False) # Set the socket to non-blocking
 udp_sock.settimeout(1)
+
+# Simulated IMU loop interval (20 milliseconds)
+loop_interval = 0.020
 
 # ---------------- Packet Builder ---------------- #
 # builds a valid 20 byte IMU packet
@@ -51,24 +54,40 @@ def make_packet(count, x, y, z):
 
 # ---------------- Main Loop ---------------- #
 # main logic below (I guess I could put it in a function called main C++ style)
-   
-print(f"Sending IMU packets to {args.serial_port}, listening for UDP on localhost port {args.udp_port}...\n\n")
-  
-count = 1 # originally I didn't know if this was the packet payload length or just an incrementing id to differentiate packets, assuming the latter
+
+print(f"Sending IMU packets to {args.serial_port}, listening for UDP packets on {args.udp_ip}:{args.udp_port}\n")
+count = 1 # assuming this is just an incrementing ID to differentiate packets
+
 while True:
+
+    start_time = time.time()
+
+    # write packet to uart
     pkt = make_packet(count, 10.0 + count % 3, 20.0 + count % 5, 40.0 + count % 7)
     print(f"[EMULATOR][UART_WRITE]: Packet #{count}: X={10 + count % 3:.2f} Y={20 + count % 5:.2f} Z={40 + count % 7:.2f}")
     ser.write(pkt) # terminal: echo -ne '\x7f\xf0\x1c\xaf\x00\x00\x00\x01\x41\x20\x00\x00\x41\xa0\x00\x00\x42\x20\x00\x00' > /dev/pts/7
     count += 1 # ok if wraps
-
-    try:
-        data, _ = udp_sock.recvfrom(1024) # This blocks until receives 1024 bytes, should make it 20?
-        print("[EMULATOR][UDP_READ]  :", data.decode('utf-8')) # terminal: netcat -ul 9000
-        print()
-    except socket.timeout:
-        pass
     
-    time.sleep(SLEEP_SEC) # 0.020 sec == 20ms == 50Hz, c++ processes every 80ms (12.5hz)
+    # read packet from udp port
+    
+    # Check if data is ready to receive using select with no timeout
+    ready_sockets, _, _ = select.select([udp_sock], [], [], 0) # 0 timeout = don't wait
+    
+    if ready_sockets:
+        try:
+            data, addr = udp_sock.recvfrom(128)  # Receive data (maybe less data)
+            print("[EMULATOR][UDP_READ]  :", data.decode('utf-8')) # terminal: netcat -ul 9000
+            print(f"Bytes read: {len(data)}\n")
+        except BlockingIOError:
+            pass # No data available, this is expected in non-blocking mode
+    else:
+        pass # No data ready at the moment
+        
+    # Calculate elapsed time and sleep if necessary to maintain the desired loop interval
+    elapsed_time = time.time() - start_time
+    sleep_time = max(0, loop_interval - elapsed_time) # Ensure positive sleep time
+    
+    time.sleep(sleep_time) # 0.020 sec == 20ms == 50Hz, c++ processes every 80ms (12.5hz)
 
 
 
