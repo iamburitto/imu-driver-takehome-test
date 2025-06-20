@@ -41,6 +41,24 @@ constexpr uint8_t SYNC_BYTES[4]  = {0x7F, 0xF0, 0x1C, 0xAF};
 
 #define MAX_UDP_PAYLOAD_SIZE 128
 
+/*
+    TODO: To make the C++ side as robust as the Python side:
+    
+    1. Use select() or poll():
+        - For both UART (/dev/tty*) and the UDP socket.
+        - Prevents blocking issues and enables precise timing logic.
+        
+    2. Make file descriptors non-blocking:
+        - Use fcntl(fd, F_SETFL, O_NONBLOCK) for the UART.
+        - Set MSG_DONTWAIT or non-blocking flags for the UDP socket.
+        
+    3. Control execution rate with explicit time tracking:
+        - Measure elapsed loop time using start_time = current_time and subtracting that from 80ms to sleep() for the exact remainder → makes the loop run close to real-time 50Hz.
+        
+    4. Optionally log dropped/skipped packets (if loop takes too long) to assess timing margins.
+
+*/
+
 void uart_reader_thread(int fd)
 {
     /*
