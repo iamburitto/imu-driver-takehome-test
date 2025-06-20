@@ -58,6 +58,15 @@ def make_packet(count, x, y, z):
 print(f"Sending IMU packets to {args.serial_port}, listening for UDP packets on {args.udp_ip}:{args.udp_port}\n")
 count = 1 # assuming this is just an incrementing ID to differentiate packets
 
+'''
+    LOOP LOGIC:
+    
+    1. UDP socket in Python set to non-blocking mode
+    2. Wrap the socket in select() before calling recv() to avoid waiting unnecessarily.
+    3. Measure elapsed loop time using start_time = time.time() and subtract that from 20ms to sleep() for the exact remainder
+       → makes the loop run close to real-time 50Hz.
+'''
+
 while True:
 
     start_time = time.time()
