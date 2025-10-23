@@ -13,11 +13,6 @@
 	/vscode-markdown-toc-config -->
 <!-- /vscode-markdown-toc --># TODO 
 
-FYI all of these estimates were doubled or tripled, and I pretty much stopped doing this after the first day, but it got me started and the things were actually done even if there were way more of them than this.
-
-This is for me. Not for my manger.
-If a manager made me do this, and its not just for me, I would slow waaaaaay down and get very stressed out and defensive - pro tip for dealing with me! But I left it in here so you can see the attempt.
-
 ##  1. <a name='TODOProgressTracker'></a>TODO / Progress Tracker
 
 ---
